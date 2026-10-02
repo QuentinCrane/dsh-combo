@@ -19,6 +19,16 @@ class Shape {
     return this
   }
 
+  /**
+   * Real Schemastery parses a `.volatile()` field into a stable reference read
+   * with `.get()`; the shim only records the marker, because the Host half
+   * unwraps such references defensively.
+   */
+  volatile() {
+    this.meta.volatile = true
+    return this
+  }
+
   parse(value) {
     const source = value === undefined ? this.meta.default : value
     if (this.dict === undefined) return source

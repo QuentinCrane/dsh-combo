@@ -26,6 +26,10 @@ window.__ModuleLoader__.load({
 
     const PROJECTION_KEY = 'dshCombo'
     const CONFIG_URL = '/dsh-combo/config'
+    /** The Plugins-page slot for a bundle's own configuration page (keyed by package name). */
+    const SETTINGS_SLOT = 'plugins.bundle.config'
+    /** The settings namespace the Host serves: the row id, which is the package name. */
+    const SETTINGS_NS = 'dsh-combo'
     const PIN_STORAGE_PREFIX = 'dsh-combo:pin:'
     const CUSTOM_STORAGE_KEY = 'dsh-combo:appearance'
     const PRESET_STORAGE_KEY = 'dsh-combo:preset'
@@ -69,22 +73,51 @@ window.__ModuleLoader__.load({
 
 
     // Only known, bounded presentation settings may come from local storage.
-    const CUSTOM_RANGES = {"powerThreshold": [0,1000], "effectFrequency": [1,20], "shakeIntensity": [0,12], "timerMs": [1000, 60000], "scale": [0.5, 2], "offsetX": [0, 240], "offsetY": [0, 240], "barHeight": [2, 16], "particleCount": [0, 80], "particleSize": [1, 12], "particleSpread": [0.25, 2], "effectDurationMs": [200, 2500], "glow": [0, 2]}
+    const CUSTOM_RANGES = {"powerThreshold": [0,1000], "effectFrequency": [1,20], "shakeIntensity": [0,12], "timerMs": [1000, 60000], "scale": [0.5, 2], "offsetX": [0, 240], "offsetY": [0, 240], "barHeight": [2, 16], "particleCount": [0, 80], "particleSize": [1, 12], "particleSpread": [0.25, 2], "effectDurationMs": [200, 2500], "glow": [0, 2], "soundVolume": [0, 1], "soundFrom": [0, 1000]}
     function cleanAppearance(raw) {
       const out = {}
       if (!raw || typeof raw !== 'object') return out
       for (const [key, [min, max]] of Object.entries(CUSTOM_RANGES)) {
-        if (typeof raw[key] === 'number' && Number.isFinite(raw[key])) out[key] = ['particleCount', 'effectFrequency', 'powerThreshold'].includes(key) ? Math.round(Math.max(min, Math.min(max, raw[key]))) : Math.max(min, Math.min(max, raw[key]))
+        if (typeof raw[key] === 'number' && Number.isFinite(raw[key])) out[key] = ['particleCount', 'effectFrequency', 'powerThreshold', 'soundFrom'].includes(key) ? Math.round(Math.max(min, Math.min(max, raw[key]))) : Math.max(min, Math.min(max, raw[key]))
       }
       for (const key of ['accentColor', 'numberColor']) {
         if (raw[key] === '' || (typeof raw[key] === 'string' && /^#[0-9a-f]{6}$/i.test(raw[key]))) out[key] = raw[key]
       }
-      for (const key of ['showGain', 'showTimer', 'particles', 'showToolName', 'shake']) {
+      for (const key of ['showGain', 'showTimer', 'particles', 'showToolName', 'shake', 'sound']) {
         if (typeof raw[key] === 'boolean') out[key] = raw[key]
       }
       if (['off', 'normal', 'strong'].includes(raw.animation)) out.animation = raw.animation
       if (Object.hasOwn(PLACEMENT, raw.position)) out.position = raw.position
       return out
+    }
+
+    // The gear panel's quick tune is per browser, while the Plugins page writes
+    // the profile. When the page saves a key it drops that key's local override,
+    // so the saved value takes over instead of hiding behind a stale quick tune.
+    const overrideListeners = new Set()
+
+    /** The local quick-tune overrides, cleaned on the way in. */
+    function readAppearance() {
+      try {
+        return cleanAppearance(JSON.parse(storageGet(CUSTOM_STORAGE_KEY)))
+      } catch {
+        return {}
+      }
+    }
+
+    /** Drop saved keys from the local overrides and wake every mounted HUD. */
+    function clearAppearanceKeys(keys) {
+      const stored = readAppearance()
+      let changed = false
+      for (const key of keys) {
+        if (Object.hasOwn(stored, key)) {
+          delete stored[key]
+          changed = true
+        }
+      }
+      if (!changed) return
+      storageSet(CUSTOM_STORAGE_KEY, JSON.stringify(stored))
+      for (const listener of overrideListeners) listener()
     }
 
     // ---------------------------------------------------------------------
@@ -121,6 +154,16 @@ window.__ModuleLoader__.load({
     /** Test-only: drop the memoized config so one bundle instance can serve many cases. */
     function resetConfigCacheForTests() {
       configCache = { revision: -1, value: CONFIG_DEFAULTS, inflight: null }
+    }
+
+    /**
+     * Re-read the Host config after a settings write. The route serves the live
+     * values, so this is what makes a saved setting visible in the HUD without
+     * reloading the page.
+     */
+    function refreshConfig() {
+      configCache = { revision: -1, value: configCache.value, inflight: null }
+      readConfig()
     }
 
     function useConfig() {
@@ -393,9 +436,14 @@ window.__ModuleLoader__.load({
       const sessions = props.sessions
       const uiSession = props.uiSession
       const hostConfig = useConfig()
-      const [appearance, setAppearance] = useState(() => {
-        try { return cleanAppearance(JSON.parse(storageGet(CUSTOM_STORAGE_KEY))) } catch { return {} }
-      })
+      const [appearance, setAppearance] = useState(readAppearance)
+      // The settings page may clear a local override it just replaced with the
+      // profile value, so this panel follows storage instead of owning it.
+      useEffect(() => {
+        const sync = () => setAppearance(readAppearance())
+        overrideListeners.add(sync)
+        return () => overrideListeners.delete(sync)
+      }, [])
       const config = { ...hostConfig, ...appearance }
       const customize = (key, value) => {
         const next = cleanAppearance({ ...appearance, [key]: value })
@@ -580,6 +628,12 @@ window.__ModuleLoader__.load({
         setPop(token => token + 1)
         setGain(null)
         if (motion && config.particles) setParticles({ id: pop + 1 })
+      }
+      // Audition the blip at the run length it would start from; the click itself
+      // is the gesture that lets the audio context resume.
+      const previewSound = () => {
+        const at = Math.max(Math.round(config.soundFrom), 1)
+        playBlip(at, tierOf(at).id, config.soundVolume)
       }
       const side = PLACEMENT[config.position] ?? PLACEMENT['top-right']
       const shownTool = streak > 0 ? tool : (ghostShown ? ghost.tool : '')
@@ -790,33 +844,52 @@ window.__ModuleLoader__.load({
               fontSize: '10px', padding: '2px', maxWidth: '70px',
             },
           }, Object.entries(PRESETS).map(([value, label]) => h('option', { key: value, value }, label))),
-          h(AppearanceSettings, { config, customize, onReset: resetAppearance, onPreview: previewEffect, right: side.right, top: side.top }),
+          h(AppearanceSettings, { config, customize, onReset: resetAppearance, onPreview: previewEffect, onPreviewSound: previewSound, right: side.right, top: side.top }),
         ),
       )
     }
 
-    function AppearanceSettings({ config, customize, onReset, onPreview, right, top }) {
+    /**
+     * The shared control builders. The HUD's gear panel and the Plugins-page
+     * configuration page render the same rows; only the write target differs, so
+     * the two can never drift apart.
+     *
+     * @param config - the effective values the controls display.
+     * @param write - `(key, value) => void`, the surface's own save path.
+     */
+    function controlKit(config, write) {
       const controlStyle = { width: '100%', accentColor: 'var(--dsh-combo-control-accent, #9be779)' }
       const range = (key, label, min, max, step, unit = '') => h('label', { key, style: { display: 'block', margin: '10px 0' } },
         h('span', { style: { display: 'flex', justifyContent: 'space-between', gap: '10px' } },
           label, h('span', { style: { opacity: .7 } }, key === 'particleCount' && config[key] === 0 ? '自动' : `${config[key]}${unit}`)),
         h('input', { type: 'range', min, max, step, value: config[key], 'aria-label': label,
-          'data-dsh-combo-setting': key, style: controlStyle, onChange: event => customize(key, Number(event.target.value)) }))
+          'data-dsh-combo-setting': key, style: controlStyle, onChange: event => write(key, Number(event.target.value)) }))
       const toggle = (key, label) => h('label', { key, style: { display: 'flex', gap: '8px', margin: '9px 0', alignItems: 'center' } },
         h('input', { type: 'checkbox', checked: config[key], 'data-dsh-combo-setting': key,
-          onChange: event => customize(key, event.target.checked) }), label)
+          onChange: event => write(key, event.target.checked) }), label)
       const color = (key, label, fallback) => h('label', { key, style: { display: 'flex', alignItems: 'center', gap: '8px', margin: '10px 0' } },
         h('span', { style: { flex: 1 } }, label),
         h('input', { type: 'color', value: config[key] || fallback, 'aria-label': label, 'data-dsh-combo-setting': key,
           style: { width: '32px', height: '24px', padding: 0, border: 0, background: 'transparent' },
-          onChange: event => customize(key, event.target.value) }),
-        h('button', { type: 'button', onClick: () => customize(key, ''), style: { cursor: 'pointer' } }, '自动'))
+          onChange: event => write(key, event.target.value) }),
+        h('button', { type: 'button', onClick: () => write(key, ''), style: { cursor: 'pointer' } }, '自动'))
       const section = (title, ...controls) => h('fieldset', { key: title, style: { border: 'none', borderTop: '1px solid rgba(128,128,128,.25)', padding: '8px 0', margin: '12px 0 0' } },
         h('legend', { style: { fontWeight: 700, paddingRight: '8px' } }, title), controls)
       const select = (key, label, options) => h('label', { key, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', margin: '10px 0' } }, label,
         h('select', { value: config[key], 'aria-label': label, 'data-dsh-combo-setting': key,
-          onChange: event => customize(key, event.target.value), style: { maxWidth: '150px' } },
+          onChange: event => write(key, event.target.value), style: { maxWidth: '150px' } },
           Object.entries(options).map(([value, text]) => h('option', { key: value, value }, text))))
+      // The list editor writes the raw text; the surface decides how to split it.
+      const list = (key, label, hint) => h('label', { key, style: { display: 'block', margin: '10px 0' } },
+        h('span', { style: { display: 'block', opacity: .8 } }, label),
+        h('input', { type: 'text', value: Array.isArray(config[key]) ? config[key].join(', ') : '', 'aria-label': label,
+          'data-dsh-combo-setting': key, placeholder: hint, style: { width: '100%' },
+          onChange: event => write(key, event.target.value) }))
+      return { range, toggle, color, section, select, list }
+    }
+
+    function AppearanceSettings({ config, customize, onReset, onPreview, onPreviewSound, right, top }) {
+      const { range, toggle, color, section, select } = controlKit(config, customize)
       return h('details', { 'data-dsh-combo-settings': '', style: { position: 'static', pointerEvents: 'auto' } },
         h('summary', { 'aria-label': '自定义连击外观', title: '自定义连击外观', style: { listStyle: 'none', cursor: 'pointer', fontSize: '14px', opacity: .7, padding: '2px 4px', color: 'var(--dsw-alias-text-secondary,#aaa)' } }, '\u2699'),
         h('div', { 'data-dsh-combo-settings-panel': '', style: {
@@ -846,8 +919,172 @@ window.__ModuleLoader__.load({
             range('offsetX', '水平边距', 0, 240, 2, ' px'), range('offsetY', '垂直边距', 0, 240, 2, ' px')),
           section('显示', toggle('showTimer', '显示倒计时条'), toggle('showGain', '显示增量提示'), toggle('showToolName', '显示工具名'),
             select('animation', '反馈强度', { off: '关闭', normal: '普通', strong: '强烈' })),
+          section('音效', toggle('sound', '启用音效'),
+            range('soundVolume', '音量', 0, 1, .05),
+            range('soundFrom', '起播连击数', 0, 100, 1, ' 次'),
+            h('p', { key: 'sound-note', style: { margin: '4px 0', opacity: .65, fontSize: '11px' } },
+              config.sound ? `连击达到 ${config.soundFrom} 次后每次调用响一声。` : '音效当前关闭；点「试听」可先听效果。'),
+            h('button', { type: 'button', 'data-dsh-combo-setting': 'soundPreview', onClick: onPreviewSound,
+              style: { width: '100%', cursor: 'pointer' } }, '试听')),
           h('button', { type: 'button', onClick: onReset, style: { width: '100%', cursor: 'pointer', marginTop: '10px' } }, '恢复默认设置'),
         ),
+      )
+    }
+
+    // ---------------------------------------------------------------------
+    // Configuration page: Plugins → dsh-combo → 配置
+    //
+    // DSH renders this one into the bundle's page on the Plugins page and hands
+    // it the Host settings form, so these values live in the profile's row
+    // config and apply live. The gear panel above stays a per-browser quick
+    // tune on top of them.
+    // ---------------------------------------------------------------------
+
+    /** Numeric ranges this page edits; the two delays are not on the gear panel. */
+    const PAGE_RANGES = { ...CUSTOM_RANGES, expireMs: [0, 600000], pinPromptMs: [0, 60000] }
+    /** Switches, including the one that decides whether a HUD exists at all. */
+    const PAGE_SWITCHES = ['enabled', 'showToolName', 'particles', 'shake', 'showGain', 'showTimer']
+
+    /**
+     * Coerce one Host config section into values the controls can draw: a
+     * hand-edited patch must never hand a range a string or a select a stale
+     * enum member.
+     *
+     * @param raw - the namespace's current value, or anything else.
+     * @returns every field this page edits, at a value it can render.
+     */
+    function pageConfig(raw) {
+      const source = raw !== null && typeof raw === 'object' ? raw : {}
+      const unwrapped = {}
+      for (const [key, value] of Object.entries(source)) {
+        unwrapped[key] = value !== null && typeof value === 'object' && typeof value.get === 'function' ? value.get() : value
+      }
+      const config = { ...CONFIG_DEFAULTS, ...cleanAppearance(unwrapped) }
+      for (const [key, [min, max]] of Object.entries(PAGE_RANGES)) {
+        const parsed = Number(unwrapped[key])
+        config[key] = Number.isFinite(parsed) ? Math.min(Math.max(parsed, min), max) : CONFIG_DEFAULTS[key]
+      }
+      for (const key of PAGE_SWITCHES) config[key] = unwrapped[key] !== false
+      // Sound is the one switch that defaults off: an accidental beep is worse
+      // than a missing one.
+      config.sound = unwrapped.sound === true
+      config.preset = Object.hasOwn(PRESETS, unwrapped.preset) ? unwrapped.preset : CONFIG_DEFAULTS.preset
+      config.excludeTools = Array.isArray(unwrapped.excludeTools) ? unwrapped.excludeTools.map(String) : []
+      return config
+    }
+
+    /** Split the list editor's text into tool names. */
+    function splitTools(text) {
+      return String(text).split(/[,\s]+/).map((part) => part.trim()).filter((part) => part !== '')
+    }
+
+    /**
+     * The bundle's configuration page.
+     *
+     * @param props - the slot's props plus `form`, the Host settings form this
+     *   plugin injects for its own namespace.
+     */
+    function ComboSettingsPage(props) {
+      const form = props.form
+      const snapshot = useSyncExternalStore(
+        (listener) => form.subscribe(listener),
+        () => form.getSnapshot(),
+      )
+      const [busy, setBusy] = useState(false)
+      const [notice, setNotice] = useState(null)
+
+      const save = (key, raw) => {
+        const value = key === 'excludeTools' ? splitTools(raw) : raw
+        const revision = snapshot.revision
+        setBusy(true)
+        setNotice(null)
+        Promise.resolve(form.mutate([{ op: 'set', path: [key], value }], revision))
+          .then((accepted) => {
+            if (!accepted) {
+              // The form reports a refusal as `false`; a moved revision is what
+              // separates "someone else saved first" from "the Host said no".
+              const moved = form.getSnapshot().revision !== revision
+              setNotice({
+                kind: 'error',
+                text: moved ? '配置已在别处修改，已重新载入当前值，请再试一次。' : '本部署没有接受这个取值。',
+              })
+              return
+            }
+            // The profile value now wins, and the HUD repaints from the live route.
+            clearAppearanceKeys([key])
+            refreshConfig()
+            setNotice({ kind: 'ok', text: '已保存到 profile 配置，立即生效。' })
+          })
+          .catch((error) => setNotice({ kind: 'error', text: String(error?.message ?? error) }))
+          .finally(() => setBusy(false))
+      }
+
+      if (snapshot.status !== 'ready') {
+        return h('p', { role: 'status', style: { margin: 0, opacity: .75 } },
+          snapshot.status === 'unavailable' ? 'dsh-combo 当前未加载，暂时无法配置。' : '正在读取配置…')
+      }
+      if (snapshot.writable === false) {
+        return h('p', { role: 'status', style: { margin: 0, opacity: .75 } }, '当前部署不允许写入配置。')
+      }
+
+      const config = pageConfig(snapshot.value)
+      const { range, toggle, color, section, select, list } = controlKit(config, save)
+      const previewSound = () => {
+        const at = Math.max(Math.round(config.soundFrom), 1)
+        playBlip(at, tierOf(at).id, config.soundVolume)
+      }
+
+      return h('div', {
+        'data-dsh-combo-config': '',
+        'aria-busy': busy ? 'true' : 'false',
+        style: { fontSize: '12px', lineHeight: 1.5, opacity: busy ? .75 : 1 },
+      },
+        h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '12px' } },
+          h('strong', { style: { fontSize: '14px' } }, '连击 HUD'),
+          h('span', { style: { opacity: .65 } }, '保存到 profile 配置，立即生效')),
+        section('连击与节奏',
+          toggle('enabled', '显示连击 HUD'),
+          range('timerMs', '倒计时时长', 1000, 60000, 1000, ' ms'),
+          range('powerThreshold', '特效触发门槛', 0, 100, 1, ' 次'),
+          range('effectFrequency', '每几次调用触发特效', 1, 20, 1),
+          toggle('shake', '连击抖动'),
+          range('shakeIntensity', '抖动强度', 0, 12, .5, ' px'),
+          range('expireMs', '空闲清零', 0, 600000, 1000, ' ms'),
+          range('pinPromptMs', '保留连击提示时长', 0, 60000, 500, ' ms')),
+        section('外观',
+          select('preset', '默认特效', PRESETS),
+          range('scale', '计数器大小', .5, 2, .05, '×'),
+          range('barHeight', '进度条高度', 2, 16, 1, ' px'),
+          range('glow', '光晕强度', 0, 2, .1),
+          color('accentColor', '特效颜色', '#9be779'),
+          color('numberColor', '数字颜色', '#f5fff0')),
+        section('粒子', toggle('particles', '启用粒子特效'),
+          range('particleCount', '粒子数量', 0, 80, 1),
+          range('particleSize', '粒子大小', 1, 12, .5, ' px'),
+          range('particleSpread', '扩散范围', .25, 2, .05, '×'),
+          range('effectDurationMs', '特效时长', 200, 2500, 50, ' ms')),
+        section('位置',
+          select('position', '浮层位置', { 'top-right': '右上角', 'top-left': '左上角', 'bottom-right': '右下角', 'bottom-left': '左下角' }),
+          range('offsetX', '水平边距', 0, 240, 2, ' px'),
+          range('offsetY', '垂直边距', 0, 240, 2, ' px')),
+        section('显示',
+          toggle('showTimer', '显示倒计时条'),
+          toggle('showGain', '显示增量提示'),
+          toggle('showToolName', '显示工具名'),
+          select('animation', '反馈强度', { off: '关闭', normal: '普通', strong: '强烈' })),
+        section('音效', toggle('sound', '启用音效'),
+          range('soundVolume', '音量', 0, 1, .05),
+          range('soundFrom', '起播连击数', 0, 100, 1, ' 次'),
+          h('p', { key: 'sound-note', style: { margin: '4px 0', opacity: .65, fontSize: '11px' } },
+            config.sound ? `连击达到 ${config.soundFrom} 次后每次调用响一声。` : '音效当前关闭；点「试听」可先听效果。'),
+          h('button', { type: 'button', 'data-dsh-combo-setting': 'soundPreview', onClick: previewSound,
+            style: { width: '100%', cursor: 'pointer' } }, '试听')),
+        section('高级', list('excludeTools', '不计入连击的工具', 'bash, edit')),
+        notice === null ? null : h('p', {
+          role: 'status',
+          'data-dsh-combo-notice': notice.kind,
+          style: { margin: '10px 0 0', opacity: .9 },
+        }, notice.text),
       )
     }
 
@@ -960,6 +1197,19 @@ window.__ModuleLoader__.load({
           id: 'dsh-combo',
           order: 50,
         }, (props) => h(ComboRoot, { ...props, sessions, uiSession })))
+
+        // The dedicated configuration page. `configForms` is injected softly, so
+        // a profile without the settings plugin keeps the HUD and its local
+        // quick panel; `whileServed` waits until the Host actually serves this
+        // row's namespace, which is what makes a write possible.
+        ctx.inject(['configForms'], (settingsCtx) => {
+          const form = settingsCtx.configForms.get(SETTINGS_NS)
+          settingsCtx.effect(() => settingsCtx.configForms.whileServed([SETTINGS_NS], () => settingsCtx.slots.inject(SETTINGS_SLOT, () => settingsCtx.slots.register({
+            name: SETTINGS_SLOT,
+            key: SETTINGS_NS,
+            inject: () => ({ form }),
+          }, ComboSettingsPage))))
+        })
       },
     }
   },

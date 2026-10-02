@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0 — 2026-10-02
+
+- Added a dedicated configuration page: the bundle now appears under **Plugins → dsh-combo → 配置** with every setting in one place, saved into the profile's row config instead of one browser's local storage.
+- Added the sound controls the HUD panel was missing — switch, volume, starting combo and a 试听 audition — so the synthesized blip can be turned on without editing YAML.
+- The Host half now declares a Schemastery `Config` with volatile fields, so a saved setting is committed into the running references and applies without restarting; the config route serves the live values, and the HUD repaints after a save.
+- Saving a key from the configuration page clears that key's per-browser quick-tune override, so the profile value is what you see.
+- Split the settings controls into one shared kit so the HUD panel and the configuration page cannot drift apart.
+
 ## 0.3.0 — 2026-10-02
 
 - Added a remaining-time countdown bar that refills on tool calls and keeps its deadline across cosmetic changes.

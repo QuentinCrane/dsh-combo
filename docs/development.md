@@ -8,7 +8,18 @@
 2. The unit increments on committed `tool/call` events and clears at `turn/start` or `turn/end`. It publishes `{ combo, tool, changedAt }` as the Client view.
 3. The Client plugin registers a component in `shell.overlay` through `ctx.slots.inject()`.
 4. `uiSession.adapter.current` is the root adapter's observable current binding. The binding's `key` identifies the Session; `sessions.binding(id).session.projections.faceOf('dshCombo')` returns the projection observable.
-5. `/dsh-combo/config` serves the validated row config to the browser. If that route is unavailable, the Client uses its local defaults.
+5. `/dsh-combo/config` serves the validated row config to the browser, recomputed on every request so a settings write is visible at once. If that route is unavailable, the Client uses its local defaults.
+
+## Configuration path
+
+The Host half exports a Schemastery `Config` whose fields are all `.volatile()`. Two consequences follow:
+
+1. DSH's settings service serves the row as a namespace named after the loader entry id (`dsh-combo`), which is what the Client half's `ctx.configForms.get('dsh-combo')` binds.
+2. A settings write is committed into the running references without remounting the row, so `index.js` reads `ctx.config` live (`live()`) instead of freezing a snapshot in `apply`, and the config route recomputes per request.
+
+`@deepseek-ai/schemastery` is declared under `peerDependencies` deliberately: DSH's profile resolution reads peer names to route that import to the installation's copy, while the profile's `autoInstallPeers: false` keeps pnpm from fetching it. The local test harness maps the specifier to `test/schemastery-shim.mjs` instead, and `publicConfig` unwraps a volatile reference (`.get()`) as well as a plain value.
+
+The Client half registers the configuration page into `plugins.bundle.config` only while the Host serves the namespace (`ctx.configForms.whileServed`), and injects `configForms` softly so a profile without the settings plugin still runs the HUD. Writes go through `form.mutate([{ op: 'set', path: [key], value }], revision)`: a refusal returns `false`, and a revision that moved identifies a conflict rather than a rejected value. After a save the page drops that key's local quick-tune override and calls `refreshConfig()`, so the HUD repaints from the live route.
 
 The two `inject` declarations have different roles:
 

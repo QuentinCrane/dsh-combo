@@ -11,6 +11,7 @@ A lightweight DeepSeek Harness (DSH) plugin that displays per-turn tool-call com
 - Reads the Host's `dshCombo` Session Projection. Tool results and unrelated events do not increment the count.
 - Keeps the counter turn-based by default. Set `expireMs` to opt into an idle timeout.
 - Shows the latest tool name, tiered visual feedback, optional sound, and a per-session pin that can carry a streak across turns.
+- Carries its own configuration page on the **Plugins** page, where every setting — sound included — is saved into the profile and applied live.
 - Runs in the DSH Web Client, including the Web UI embedded in DSH Desktop. It does not add content to model requests or contact a third-party service. Pin state is stored in the client page's `localStorage`.
 
 ## Install with the official CLI
@@ -46,7 +47,15 @@ The plugin contributes a Host projection and a DSH Client module. DSH Desktop em
 
 ## Configure
 
-The bundle provides working defaults in `cordis.patch.yml`. To override them, add a later row for `dsh-combo` in the profile's `cordis.patch.yml`:
+### In the app
+
+Open **Plugins** in the sidebar, select the `dsh-combo` bundle, and use the configuration section on its page. Every setting lives there — including the sound switch, volume and starting combo — and a save is written into the profile's row config and applied immediately, with no restart and no page reload.
+
+The HUD's own gear panel stays a per-browser quick tune on top of that: it previews changes for this browser only and keeps them in local storage. Saving the same key from the Plugins page clears that local override, so the profile value is what you see. The panel's **恢复默认设置** drops every local override and goes back to the configured values.
+
+### In the profile patch
+
+The bundle provides working defaults in `cordis.patch.yml`. To override them by hand, add a later row for `dsh-combo` in the profile's `cordis.patch.yml`:
 
 ```yaml
 - id: dsh-combo
@@ -100,7 +109,7 @@ DSH patch layers replace a row's complete `config` object. Include every setting
 | `soundFrom` | `10` | First count that plays a tone. Range: `0` to `1000`. |
 | `pinPromptMs` | `5000` | How long a finished run of at least two calls remains available to pin. Maximum: `60000`; `0` disables the prompt. |
 
-Invalid enum values use their defaults; numeric settings are clamped to their documented ranges.
+Invalid enum values use their defaults; numeric settings are clamped to their documented ranges. The Host half declares every setting as a volatile field of its Schemastery `Config`, which is what puts them on the Plugins page and lets a write apply without restarting the row.
 
 ## Display behavior
 

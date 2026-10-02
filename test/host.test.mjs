@@ -146,7 +146,7 @@ test('apply() registers one projection unit and one config route', () => {
     config: undefined,
     sessionProjections: { register: (definition) => units.push(definition) },
     inject: (services, callback) => callback({
-      effect: (factory) => effects.push(factory()),
+      effect: (factory) => effects.push({ services, value: factory() }),
       webServer: { register: (route) => routes.push(route) },
     }),
   }
@@ -158,7 +158,8 @@ test('apply() registers one projection unit and one config route', () => {
   const configRoute = routes.find((route) => route.path === '/dsh-combo/config')
   assert.ok(configRoute, 'the config route is registered')
   assert.equal(configRoute.kind, 'exact')
-  assert.equal(effects.length, routes.length, 'every route is owned by its own effect')
+  assert.equal(effects.filter((entry) => entry.services.includes('webServer')).length, routes.length,
+    'every route is owned by its own effect')
 
   // The unit drives exactly like the framework drives it.
   let state = units[0].init()
@@ -167,6 +168,56 @@ test('apply() registers one projection unit and one config route', () => {
   assert.deepEqual(units[0].wire.view(state), { combo: 2, tool: 'edit', changedAt: 1000 })
   state = units[0].apply(state, boundary('turn/end'))
   assert.deepEqual(units[0].wire.view(state), { combo: 0, tool: '', changedAt: 1000 })
+})
+
+test('apply() withdraws the auto-generated settings form for its own page', () => {
+  const configured = []
+  const fiber = { uid: 7 }
+  const childFiber = { uid: 8 }
+  apply({
+    config: undefined,
+    fiber,
+    sessionProjections: { register: () => {} },
+    inject: (services, callback) => {
+      if (!services.includes('settings')) return
+      callback({
+        // The child injection has its own fiber; the policy must name the plugin's.
+        fiber: childFiber,
+        effect: (factory) => factory(),
+        settings: { configure: (presentation, owner) => configured.push({ presentation, owner }) },
+      })
+    },
+  })
+  assert.deepEqual(configured, [{ presentation: { auto: false }, owner: fiber }],
+    'the Plugins page owns the form, so Settings must not auto-generate one')
+})
+
+test('a settings write reaches the live values without remounting', () => {
+  const routes = []
+  // One mutable config object, exactly as the Loader commits volatile fields.
+  const config = { sound: false, soundVolume: 0.35, timerMs: 4_000 }
+  apply({
+    config,
+    sessionProjections: { register: () => {} },
+    inject: (services, callback) => callback({
+      effect: (factory) => factory(),
+      webServer: { register: (route) => routes.push(route) },
+    }),
+  })
+  const route = routes.find((entry) => entry.path === '/dsh-combo/config')
+  const read = () => {
+    let body = ''
+    route.handler({}, { writeHead: () => {}, end: (chunk) => { body = chunk } })
+    return JSON.parse(body).config
+  }
+  assert.equal(read().sound, false, 'the route starts from the row config')
+
+  // A volatile write commits into the same references; a volatile field parses
+  // into a `.get()` reference, so both shapes have to land.
+  config.sound = { get: () => true }
+  config.soundVolume = { get: () => 0.8 }
+  assert.equal(read().sound, true, 'the route serves the committed value')
+  assert.equal(read().soundVolume, 0.8, 'and unwraps the volatile reference')
 })
 
 test('apply() wires expireMs from row config into the fold', () => {

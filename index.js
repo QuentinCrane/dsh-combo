@@ -20,10 +20,14 @@
  *     makes it the single source of truth for the number it paints.
  *   - sound, which is pure presentation.
  *
- * This file imports nothing: DSH resolves bundled packages only for its own
- * packages, and an out-of-tree bundle declares no dependencies. Configuration is
- * therefore read straight from `ctx.config` and clamped field by field.
+ * This file imports one thing: the Config schema. DSH resolves
+ * `@deepseek-ai/*` peers from the running installation, so an out-of-tree
+ * bundle shares the host's Schemastery instance instead of installing its own.
+ * Configuration is still clamped field by field below, because profile patches
+ * are user-authored YAML.
  */
+
+import z from '@deepseek-ai/schemastery'
 
 const PLUGIN_ID = 'dsh-combo'
 const PROJECTION_KEY = 'dshCombo'
@@ -79,6 +83,69 @@ export const CONFIG_DEFAULTS = {
 }
 
 /**
+ * Row-config schema.
+ *
+ * DSH derives a plugin's editable configuration from the `Config` this module
+ * exports, and only fields marked `.volatile()` are accepted: a volatile field
+ * is parsed into a stable reference that the loader commits in place, so a save
+ * from the Plugins page applies without remounting the row. Every field is
+ * volatile — the HUD is pure presentation, and a saved setting should be
+ * visible at once.
+ *
+ * `any()` is deliberate. DSH serializes this schema to the browser and
+ * validates writes against it, but a profile patch stays user-authored YAML:
+ * `publicConfig` already clamps each field, and a stricter type here would turn
+ * a quoted number into a row that refuses to load — exactly what this plugin
+ * tolerates today.
+ */
+export const Config = z.object({
+  enabled: z.any().default(CONFIG_DEFAULTS.enabled).volatile(),
+  showToolName: z.any().default(CONFIG_DEFAULTS.showToolName).volatile(),
+  animation: z.any().default(CONFIG_DEFAULTS.animation).volatile(),
+  particles: z.any().default(CONFIG_DEFAULTS.particles).volatile(),
+  preset: z.any().default(CONFIG_DEFAULTS.preset).volatile(),
+  timerMs: z.any().default(CONFIG_DEFAULTS.timerMs).volatile(),
+  powerThreshold: z.any().default(CONFIG_DEFAULTS.powerThreshold).volatile(),
+  effectFrequency: z.any().default(CONFIG_DEFAULTS.effectFrequency).volatile(),
+  shake: z.any().default(CONFIG_DEFAULTS.shake).volatile(),
+  shakeIntensity: z.any().default(CONFIG_DEFAULTS.shakeIntensity).volatile(),
+  scale: z.any().default(CONFIG_DEFAULTS.scale).volatile(),
+  offsetX: z.any().default(CONFIG_DEFAULTS.offsetX).volatile(),
+  offsetY: z.any().default(CONFIG_DEFAULTS.offsetY).volatile(),
+  barHeight: z.any().default(CONFIG_DEFAULTS.barHeight).volatile(),
+  particleCount: z.any().default(CONFIG_DEFAULTS.particleCount).volatile(),
+  particleSize: z.any().default(CONFIG_DEFAULTS.particleSize).volatile(),
+  particleSpread: z.any().default(CONFIG_DEFAULTS.particleSpread).volatile(),
+  effectDurationMs: z.any().default(CONFIG_DEFAULTS.effectDurationMs).volatile(),
+  glow: z.any().default(CONFIG_DEFAULTS.glow).volatile(),
+  accentColor: z.any().default(CONFIG_DEFAULTS.accentColor).volatile(),
+  numberColor: z.any().default(CONFIG_DEFAULTS.numberColor).volatile(),
+  showGain: z.any().default(CONFIG_DEFAULTS.showGain).volatile(),
+  showTimer: z.any().default(CONFIG_DEFAULTS.showTimer).volatile(),
+  position: z.any().default(CONFIG_DEFAULTS.position).volatile(),
+  excludeTools: z.any().default(CONFIG_DEFAULTS.excludeTools).volatile(),
+  expireMs: z.any().default(CONFIG_DEFAULTS.expireMs).volatile(),
+  sound: z.any().default(CONFIG_DEFAULTS.sound).volatile(),
+  soundVolume: z.any().default(CONFIG_DEFAULTS.soundVolume).volatile(),
+  soundFrom: z.any().default(CONFIG_DEFAULTS.soundFrom).volatile(),
+  pinPromptMs: z.any().default(CONFIG_DEFAULTS.pinPromptMs).volatile(),
+})
+
+/**
+ * Unwrap one volatile field.
+ *
+ * A field declared `.volatile()` parses into a stable reference read with
+ * `.get()`; a field left at its default stays ordinary data. Both shapes reach
+ * the same clamp.
+ *
+ * @param value - raw config member, possibly a volatile reference.
+ * @returns the value the reference holds, or the value itself.
+ */
+function plain(value) {
+  return value !== null && typeof value === 'object' && typeof value.get === 'function' ? value.get() : value
+}
+
+/**
  * Clamp one numeric knob.
  *
  * Accepts a YAML number or a numeric string (YAML quoting is a common slip) and
@@ -110,7 +177,12 @@ function clampNumber(value, fallback, min, max) {
  * @returns the Client-facing configuration.
  */
 export function publicConfig(cfg) {
-  const raw = cfg !== null && typeof cfg === 'object' ? cfg : {}
+  const source = plain(cfg)
+  // Volatile fields arrive as references; the clamp below wants plain values.
+  const raw = {}
+  if (source !== null && typeof source === 'object') {
+    for (const [key, value] of Object.entries(source)) raw[key] = plain(value)
+  }
   return {
     enabled: raw.enabled !== false,
     showToolName: raw.showToolName !== false,
@@ -238,20 +310,39 @@ export const inject = ['sessionProjections']
  * @param config - the resolved row config when the loader passes it.
  */
 export function apply(ctx, config) {
-  const cfg = publicConfig(config ?? ctx.config)
-  const excluded = new Set(cfg.excludeTools.map((tool) => String(tool).toLowerCase()))
+  // Volatile configuration is committed into the running references when a
+  // settings write lands, so every read goes through the live values instead of
+  // a snapshot frozen at apply time.
+  const live = () => publicConfig(config ?? ctx.config)
 
   // One combo value per session, driven by the framework over committed events.
   ctx.sessionProjections.register({
     key: PROJECTION_KEY,
     stateVersion: 2,
     init: () => ({ combo: 0, tool: '', lastCallAt: 0, updatedAt: 0 }),
-    apply: (state, event) => foldCombo(state, event, { excluded, expireMs: cfg.expireMs }),
+    apply: (state, event) => {
+      const cfg = live()
+      const excluded = new Set(cfg.excludeTools.map((tool) => String(tool).toLowerCase()))
+      return foldCombo(state, event, { excluded, expireMs: cfg.expireMs })
+    },
     wire: { viewSchema: ComboViewSchema, view: toComboView },
   })
 
+  // This plugin renders its own page on the Plugins page, so the settings
+  // service withdraws the auto-generated form for the row. The service is
+  // optional: a profile without it still gets the projection and the route.
+  // The owner must be THIS plugin's fiber, not the child injection's.
+  ctx.inject(['settings'], (settingsCtx) => {
+    settingsCtx.effect(() => {
+      const fiber = ctx.fiber
+      if (fiber === undefined) return undefined
+      return settingsCtx.settings.configure({ auto: false }, fiber)
+    }, `${PLUGIN_ID}: settings presentation`)
+  })
+
   // The Client bundle is a static artifact and cannot read this plugin's row
-  // config, so the Host publishes it over one no-store route.
+  // config, so the Host publishes it over one no-store route. Serving the live
+  // values keeps a saved setting visible without reloading the page.
   ctx.inject(['webServer'], (webCtx) => {
     webCtx.effect(() => webCtx.webServer.register({
       kind: 'exact',
@@ -261,7 +352,7 @@ export function apply(ctx, config) {
           'Content-Type': 'application/json; charset=utf-8',
           'Cache-Control': 'no-store',
         })
-        res.end(JSON.stringify({ revision: CONFIG_REVISION, config: cfg }))
+        res.end(JSON.stringify({ revision: CONFIG_REVISION, config: live() }))
       },
     }), `${PLUGIN_ID}: config route`)
   })

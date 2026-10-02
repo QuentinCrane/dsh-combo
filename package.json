@@ -1,6 +1,6 @@
 {
   "name": "dsh-combo",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "PowerMode-style tool-call combo feedback for DeepSeek Harness Web and Desktop, with a countdown, effect presets and live customization.",
   "type": "module",
   "main": "./index.js",
@@ -40,6 +40,9 @@
     "tool-calls"
   ],
   "license": "MIT",
+  "peerDependencies": {
+    "@deepseek-ai/schemastery": "~3.18.4"
+  },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"

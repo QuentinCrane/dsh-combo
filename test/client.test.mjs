@@ -95,6 +95,39 @@ function fakeAudio() {
   return { played, Ctor: FakeAudioContext }
 }
 
+/**
+ * A stand-in for the Host settings form the Plugins page hands a bundle
+ * (`ctx.configForms.get(ns)`): a revisioned snapshot plus the documented write
+ * queue, so a test can watch exactly what the configuration page sends.
+ */
+function fakeForm(options = {}) {
+  const writes = []
+  const listeners = new Set()
+  let snapshot = {
+    status: options.status ?? 'ready',
+    value: options.value ?? {},
+    base: options.value ?? {},
+    user: {},
+    revision: options.revision ?? 1,
+    writable: options.writable !== false,
+    mode: 'host',
+  }
+  return {
+    writes,
+    getSnapshot: () => snapshot,
+    subscribe: (listener) => { listeners.add(listener); return () => listeners.delete(listener) },
+    mutate: async (ops, revision) => {
+      writes.push({ ops: structuredClone(ops), revision })
+      if (options.refuse === true) return false
+      const value = { ...snapshot.value }
+      for (const op of ops) if (op.op === 'set') value[op.path[0]] = op.value
+      snapshot = { ...snapshot, value, revision: (revision ?? snapshot.revision) + 1 }
+      for (const listener of listeners) listener()
+      return true
+    },
+  }
+}
+
 /** The real `localStorage` (absent in Node), restored whenever a mount has no stand-in. */
 const originalStorage = globalThis.localStorage
 
@@ -158,6 +191,7 @@ function mountCombo(options = {}) {
   globalThis.localStorage = options.storage !== undefined ? options.storage : originalStorage
   let mounted = null
   let module = null
+  let settingsPage = null
   try {
     // The bundle is a classic script; a function scope supplies its globals. The
     // config fetch starts on the first render, so it stays stubbed until then.
@@ -171,12 +205,29 @@ function mountCombo(options = {}) {
     module.__resetConfigCacheForTests?.()
 
     const registered = []
+    settingsPage = null
     module.apply({
       sessions,
       uiSession: { adapter: { current } },
       slots: {
         inject: (owner, callback) => callback(),
         register: (slotOptions, component) => { registered.push({ slotOptions, component }); return component },
+      },
+      // The settings page is injected softly; a test opts in by handing over a
+      // form, and `served: false` keeps the Host from serving the namespace.
+      inject: (services, callback) => {
+        if (!services.includes('configForms') || options.form === undefined) return
+        callback({
+          configForms: {
+            get: () => options.form,
+            whileServed: (namespaces, register) => (options.served === false ? () => {} : register(new Set(namespaces))),
+          },
+          slots: {
+            inject: (owner, inner) => inner(),
+            register: (slotOptions, component) => { settingsPage = component; return component },
+          },
+          effect: (factory) => factory(),
+        })
       },
     })
     assert.equal(registered.length, 1)
@@ -188,7 +239,7 @@ function mountCombo(options = {}) {
     globalThis.window = previousWindow
   }
 
-  return { mounted, comboFace, current, faceOf, module }
+  return { mounted, comboFace, current, faceOf, module, settingsPage, storage: options.storage }
 }
 
 /** Text directly inside nodes (not the whole subtree). */
@@ -618,6 +669,107 @@ test('a missing AudioContext is not fatal', async () => {
     globalThis.AudioContext = previous
     if (previousWebkit !== undefined) globalThis.webkitAudioContext = previousWebkit
   }
+})
+
+test('the HUD panel carries the sound controls, and 试听 auditions while sound is off', async () => {
+  const audio = fakeAudio()
+  const storage = fakeStorage()
+  const previous = globalThis.AudioContext
+  globalThis.AudioContext = audio.Ctor
+  try {
+    const fixture = mountCombo({ storage, config: { sound: false, soundFrom: 4, soundVolume: 0.5 }, combo: { combo: 2, tool: 'read' } })
+    await settle()
+    const setting = key => findAll(fixture.mounted, node => node.attributes?.['data-dsh-combo-setting'] === key)[0]
+
+    const preview = setting('soundPreview')
+    assert.ok(preview, 'the panel offers a 试听 control')
+    preview.props.onClick()
+    assert.equal(audio.played.length, 1, '试听 plays one blip even while the switch is off')
+    assert.equal(audio.played[0].hz, 240 * Math.pow(2, 4 / 24), 'auditioned at the configured starting combo')
+
+    setting('sound').props.onChange({ target: { checked: true } })
+    fixture.mounted.update()
+    fixture.comboFace.set({ combo: 3, tool: 'read' })
+    fixture.mounted.update()
+    assert.equal(audio.played.length, 1, 'below soundFrom stays silent')
+    fixture.comboFace.set({ combo: 4, tool: 'read' })
+    fixture.mounted.update()
+    assert.equal(audio.played.length, 2, 'the crossing call beeps')
+    assert.ok(storage.getItem('dsh-combo:appearance').includes('"sound":true'), 'the switch is kept locally')
+
+    const reload = mountCombo({ storage, config: { sound: false, soundFrom: 4, soundVolume: 0.5 }, combo: { combo: 4, tool: 'read' } })
+    await settle()
+    reload.comboFace.set({ combo: 5, tool: 'read' })
+    reload.mounted.update()
+    assert.equal(audio.played.length, 3, 'the locally kept switch still beeps after a reload')
+  } finally {
+    globalThis.AudioContext = previous
+  }
+})
+
+test('the configuration page appears only while the Host serves the namespace', async () => {
+  const unserved = mountCombo({ form: fakeForm(), served: false, combo: { combo: 2, tool: 'read' } })
+  await settle()
+  assert.equal(unserved.settingsPage, null, 'no page while the namespace is unserved')
+
+  const served = mountCombo({ form: fakeForm(), combo: { combo: 2, tool: 'read' } })
+  await settle()
+  assert.equal(typeof served.settingsPage, 'function', 'the page registers once the namespace is served')
+  assert.ok(hud(served.mounted), 'the HUD keeps running either way')
+})
+
+test('the configuration page writes through the Host form and drops the local override', async () => {
+  const storage = fakeStorage()
+  storage.setItem('dsh-combo:appearance', JSON.stringify({ sound: false, scale: 1.5 }))
+  const form = fakeForm({ value: { sound: false, soundFrom: 4, soundVolume: 0.5, enabled: true }, revision: 3 })
+  const fixture = mountCombo({ storage, form, combo: { combo: 2, tool: 'read' } })
+  await settle()
+  const page = React.mount(React.createElement(fixture.settingsPage, { form }))
+  const setting = key => page.all().filter(node => node.attributes?.['data-dsh-combo-setting'] === key)[0]
+
+  assert.equal(setting('sound').props.checked, false, 'the page shows the served value')
+  assert.equal(setting('soundFrom').props.value, 4)
+  setting('sound').props.onChange({ target: { checked: true } })
+  await settle()
+  page.update()
+
+  assert.deepEqual(form.writes, [{ ops: [{ op: 'set', path: ['sound'], value: true }], revision: 3 }],
+    'the write is revision-fenced and shaped as the Host expects')
+  const notice = page.all().filter(node => node.attributes?.['data-dsh-combo-notice'] !== undefined)[0]
+  assert.equal(notice.attributes['data-dsh-combo-notice'], 'ok')
+  const stored = JSON.parse(storage.getItem('dsh-combo:appearance'))
+  assert.equal(Object.hasOwn(stored, 'sound'), false, 'a saved key leaves the per-browser quick tune')
+  assert.equal(stored.scale, 1.5, 'other quick-tune keys stay')
+})
+
+test('the configuration page reports a refused write instead of pretending to save', async () => {
+  const form = fakeForm({ value: { sound: false }, refuse: true })
+  const fixture = mountCombo({ form, combo: { combo: 2, tool: 'read' } })
+  await settle()
+  const page = React.mount(React.createElement(fixture.settingsPage, { form }))
+  const setting = key => page.all().filter(node => node.attributes?.['data-dsh-combo-setting'] === key)[0]
+
+  setting('sound').props.onChange({ target: { checked: true } })
+  await settle()
+  page.update()
+  const notice = page.all().filter(node => node.attributes?.['data-dsh-combo-notice'] !== undefined)[0]
+  assert.equal(notice.attributes['data-dsh-combo-notice'], 'error')
+})
+
+test('the configuration page splits the excluded-tool list into an array', async () => {
+  const form = fakeForm({ value: { excludeTools: [] } })
+  const fixture = mountCombo({ form, combo: { combo: 2, tool: 'read' } })
+  await settle()
+  const page = React.mount(React.createElement(fixture.settingsPage, { form }))
+  const setting = key => page.all().filter(node => node.attributes?.['data-dsh-combo-setting'] === key)[0]
+
+  setting('excludeTools').props.onChange({ target: { value: 'todo_write, bash  edit' } })
+  await settle()
+  assert.deepEqual(form.writes.at(-1).ops, [{
+    op: 'set',
+    path: ['excludeTools'],
+    value: ['todo_write', 'bash', 'edit'],
+  }])
 })
 
 test('config controls placement, the tool name and particles', async () => {

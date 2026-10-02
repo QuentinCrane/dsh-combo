@@ -11,6 +11,7 @@ dsh-combo 是 DeepSeek Harness（DSH）的轻量级插件，可在 DSH Web 界�
 - 读取 Host 提供的 `dshCombo` 会话投影；`tool/result` 和其他事件不计数。
 - 默认按 turn 计数；可通过 `expireMs` 选择启用空闲超时。
 - 显示最近调用的工具、分档视觉反馈、可选音效，并可按会话 pin 连击，在多轮之间累计。
+- 在侧栏**插件**页有独立的配置页，全部设置（含音效开关、音量、起播连击数）保存到 profile 并立即生效。
 - 运行在 DSH Web Client 中，也支持内嵌同一 Web 应用的 DSH Desktop。不修改发给模型的内容，也不连接第三方服务。Pin 状态保存在客户端页面的 `localStorage`。
 
 ## 通过官方 CLI 安装
@@ -46,7 +47,15 @@ dsh --profile web
 
 ## 配置
 
-`cordis.patch.yml` 提供可用的默认值。要覆盖配置，在 profile 的 `cordis.patch.yml` 里添加一个更靠后的 `dsh-combo` 行：
+### 在界面里配置
+
+打开侧栏的**插件**页，选中 `dsh-combo` 组合包，使用它页面上的配置区。所有设置都在那里——包括音效开关、音量与起播连击数——保存后写入 profile 的行配置并立即生效，不需要重启，也不需要刷新页面。
+
+HUD 上的齿轮面板仍然保留，作为「本机快速调整」：只对当前浏览器预览，并存在本机存储里。在插件页保存同一个键会清掉该键的本地覆盖，因此以 profile 配置为准；面板上的**恢复默认设置**会清空全部本地覆盖，回到配置值。
+
+### 在 profile patch 里配置
+
+`cordis.patch.yml` 提供可用的默认值。要手动覆盖配置，在 profile 的 `cordis.patch.yml` 里添加一个更靠后的 `dsh-combo` 行：
 
 ```yaml
 - id: dsh-combo
@@ -100,7 +109,7 @@ DSH patch layer 会替换该行完整的 `config` 对象。覆盖时，请把想
 | `soundFrom` | `10` | 从第几次连击开始播放声音，范围 `0`–`1000`。 |
 | `pinPromptMs` | `5000` | turn 结束后，至少有 2 次调用的连击可被 pin 的停留时间。最大值：`60000`；`0` 表示不提示。 |
 
-无效的枚举值会回退到默认值；数值会被夹在对应范围内。
+无效的枚举值会回退到默认值；数值会被夹在对应范围内。Host 半侧把每项设置都声明为 Schemastery `Config` 的 volatile 字段，这正是它们出现在插件页、并且写入后无需重启即可生效的原因。
 
 ## 自定义外观与节奏
 
