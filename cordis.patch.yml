@@ -1,0 +1,52 @@
+# dsh-combo — DSH bundle patch (mount declaration).
+#
+# The bundle inserts one row; DSH composes it into the desktop/web profile.
+# Options live on the inserted row's `config`; the defaults shown here are the
+# same values the plugin ships with, so editing this block is how you tune it.
+#
+# Install (from a workspace checkout):
+#   dsh plugin --profile <name> add link:/abs/path/to/dsh-combo
+- insert:
+    - id: dsh-combo
+      name: 'dsh-combo'
+      config:
+        enabled: true
+        showToolName: true
+        # off | normal | strong
+        animation: normal
+        particles: true
+        # particles | flames | fireworks | rift
+        preset: particles
+        # Countdown refills on calls; idle reset still uses expireMs.
+        timerMs: 10000
+        powerThreshold: 0
+        effectFrequency: 1
+        shake: true
+        shakeIntensity: 3
+        scale: 1
+        offsetX: 18
+        offsetY: 10
+        barHeight: 7
+        particleCount: 0
+        particleSize: 4
+        particleSpread: 1
+        effectDurationMs: 820
+        glow: 1
+        accentColor: ''
+        numberColor: ''
+        showGain: true
+        showTimer: true
+        # top-right | top-left | bottom-right | bottom-left
+        position: top-right
+        # tool names that must not raise the combo, e.g. ["todo_write"]
+        excludeTools: []
+        # 0 = purely turn-based. >0 breaks a run after that many idle milliseconds.
+        expireMs: 0
+        # sound is opt-in: a long turn would otherwise be a long run of beeps
+        sound: false
+        # 0 – 1
+        soundVolume: 0.35
+        # the combo at which beeping starts
+        soundFrom: 10
+        # how long a finished run stays offered for keeping; 0 = never
+        pinPromptMs: 5000

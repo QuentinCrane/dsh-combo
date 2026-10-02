@@ -1,0 +1,56 @@
+{
+  "name": "dsh-combo",
+  "version": "0.3.0",
+  "description": "PowerMode-style tool-call combo feedback for DeepSeek Harness Web and Desktop, with a countdown, effect presets and live customization.",
+  "type": "module",
+  "main": "./index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/QuentinCrane/dsh-combo.git"
+  },
+  "homepage": "https://github.com/QuentinCrane/dsh-combo#readme",
+  "bugs": {
+    "url": "https://github.com/QuentinCrane/dsh-combo/issues"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "README.md",
+    "README.zh-CN.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "docs"
+  ],
+  "scripts": {
+    "test": "node --import ./test/register.mjs --test test/host.test.mjs test/client.test.mjs"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "combo",
+    "power-mode",
+    "tool-calls"
+  ],
+  "license": "MIT",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-api-session-controller",
+        "@deepseek-ai/dsh-client-ui-session"
+      ]
+    }
+  }
+}

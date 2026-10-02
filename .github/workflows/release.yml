@@ -1,0 +1,41 @@
+name: Publish release
+on:
+  push:
+    branches: [main]
+    paths: [package.json]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm test
+      - name: Pack and publish the versioned artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(node -p "require('./package.json').version")
+          tag="v$version"
+          if gh release view "$tag" > /dev/null 2>&1; then
+            echo "Release $tag already exists."
+            exit 0
+          fi
+          artifact=$(npm pack --silent)
+          node --input-type=module <<'JS' > release-notes.md
+          import { readFileSync } from 'node:fs';
+          const version = JSON.parse(readFileSync('package.json', 'utf8')).version;
+          const changelog = readFileSync('CHANGELOG.md', 'utf8');
+          const section = changelog.split('## ').find(part => part.startsWith(version + ' '));
+          if (!section) throw new Error('Version is missing from CHANGELOG.md');
+          console.log(section.substring(section.indexOf('\n')).trim());
+          console.log('\nInstall with the official DSH CLI:\n\n```sh\ndsh plugin --profile web add github:QuentinCrane/dsh-combo#v' + version + '\ndsh plugin --profile desktop add github:QuentinCrane/dsh-combo#v' + version + '\n```');
+          JS
+          gh release create "$tag" "$artifact" --target "$GITHUB_SHA" --title "dsh-combo $version" --notes-file release-notes.md
