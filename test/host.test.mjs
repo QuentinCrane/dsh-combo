@@ -154,7 +154,7 @@ test('apply() registers one projection unit and one config route', () => {
 
   assert.equal(units.length, 1)
   assert.equal(units[0].key, 'dshCombo')
-  assert.equal(units[0].stateVersion, 2)
+  assert.equal(units[0].stateVersion, 3)
   const configRoute = routes.find((route) => route.path === '/dsh-combo/config')
   assert.ok(configRoute, 'the config route is registered')
   assert.equal(configRoute.kind, 'exact')
@@ -269,7 +269,7 @@ test('the published config route serves the clamped config', () => {
   assert.equal(head.headers['Cache-Control'], 'no-store')
   assert.equal(payload.config.expireMs, 2_000)
   assert.equal(payload.config.sound, true)
-  assert.equal(payload.revision, 4, 'the revision lets a cached Client notice an upgrade')
+  assert.equal(payload.revision, 5, 'the revision lets a cached Client notice an upgrade')
 })
 
 test('the published config is clamped to known values', () => {
@@ -326,4 +326,45 @@ test('appearance configuration validates colors and bounds expensive effects', (
   assert.equal(config.effectFrequency, 1)
   assert.equal(config.powerThreshold, 0)
   assert.equal(config.shakeIntensity, 12)
+})
+
+const thought = (turn = 1, step = 1, time = 2000) => ({
+  type: 'assistant/message', surfaceOp: 'append', time,
+  data: { turn, step, message: { role: 'assistant', content: [{ type: 'text', text: 'Ready' }] } },
+})
+
+test('a settled model round earns one combo, then tools each earn another', () => {
+  let state = foldCombo(idle(), thought())
+  assert.equal(state.combo, 1)
+  assert.equal(state.tool, '思考')
+  state = foldCombo(state, call('read', 3000))
+  assert.equal(state.combo, 2)
+  assert.equal(foldCombo(state, thought()), state, 'settlement of the same step cannot count twice')
+  state = foldCombo(state, thought(1, 2, 4000))
+  assert.equal(state.combo, 3)
+  assert.equal(toComboView(state).changedAt, 4000, 'thinking refills the countdown too')
+  state = foldCombo(state, boundary('turn/end'))
+  state = foldCombo(state, thought(2, 1, 5000))
+  assert.equal(state.combo, 1)
+})
+
+test('streaming, retries, interruption and history rewrites do not earn thought combos', () => {
+  const state = foldCombo(idle(), call('read'))
+  for (const event of [
+    { ...thought(), type: 'assistant/live-chunk' },
+    { ...thought(), type: 'assistant/attempt' },
+    { ...thought(), data: { ...thought().data, interrupted: true } },
+    { ...thought(), surfaceOp: { op: 'replace', startSeq: 1, endSeq: 1 } },
+    { ...thought(), data: {} },
+  ]) assert.equal(foldCombo(state, event), state)
+})
+
+test('thoughts obey idle resets and are independent of tool exclusions', () => {
+  const options = { expireMs: 1000, excluded: new Set(['思考', 'read']) }
+  let state = foldCombo(idle(), thought(1, 1, 1000), options)
+  assert.equal(state.combo, 1)
+  assert.equal(foldCombo(state, call('read', 1500), options), state)
+  state = foldCombo(state, thought(1, 2, 3000), options)
+  assert.equal(state.combo, 1)
+  assert.equal(state.lastCallAt, 3000)
 })

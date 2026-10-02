@@ -4,7 +4,7 @@
 
 1. Confirm the profile includes the `dsh-combo` bundle layer with `dsh --profile <profile> --dump-config`.
 2. Confirm the row is enabled and the profile runs a DSH Client UI. This includes the Web profile and DSH Desktop's embedded Web UI. The module declares `platform: web` because that is the DSH Client module contract.
-3. Confirm this is an active Session and at least one tool call has been committed. The HUD stays hidden at zero and after an unpinned run closes.
+3. Confirm this is an active Session and at least one model round or tool call has been committed. The HUD stays hidden at zero and after an unpinned run closes.
 4. Reload or restart the profile after installing or changing the package, unless HMR has already applied the update.
 5. Check that `package.json` exports both `./client` and `./package.json`, and that the `dsh.client` entry name, Host row name, and `window.__ModuleLoader__.load({ id })` all resolve to `dsh-combo`.
 
@@ -12,7 +12,7 @@
 
 The Host row must be enabled in the same profile and must be able to inject `sessionProjections`. The Client reads the current Session identity from `uiSession.adapter.current`, then subscribes to the Session face at `sessions.binding(id).session.projections.faceOf('dshCombo')`. Avoid substituting undocumented `uiSession.current` or `sessions.projectionStore()` APIs; neither is part of the current public Client contract.
 
-Only `tool/call` events count. `tool/result`, messages, and turn boundaries do not increment the counter. Check `excludeTools` and `expireMs` if a count starts at one or disappears sooner than expected.
+Each completed `assistant/message` round and `tool/call` counts once. Stream chunks, failed attempts, interrupted output, history replacements, `tool/result` and turn boundaries do not increment the counter. Check `excludeTools` and `expireMs` if a count starts at one or disappears sooner than expected.
 
 ## The tool label is missing
 
@@ -22,7 +22,7 @@ Set `showToolName: true`. The label is hidden when there is no current tool name
 
 - Sound defaults to off. Turn it on in the HUD's gear panel or on the Plugins-page configuration section, and use 试听 / **Preview** there to check it before enabling; browser autoplay rules can still defer audio until a user gesture.
 - `animation: off` and the operating system's reduced-motion preference disable decorative motion. The functional countdown continues to shrink.
-- Particles require `particles: true` and the configured `powerThreshold` and `effectFrequency`. The defaults trigger an effect on each call.
+- Particles require `particles: true` and the configured `powerThreshold` and `effectFrequency`. The defaults trigger an effect on each combo gain.
 
 ## The configuration section is missing from the Plugins page
 
@@ -36,3 +36,7 @@ Set `showToolName: true`. The label is hidden when there is no current tool name
 2. Watch the line under the configuration section: a save reports 已保存到 profile 配置，立即生效, while a conflict or a refused value reports an error and reloads the current values.
 3. A setting edited by hand in `cordis.patch.yml` needs a profile reload; a setting saved from the page applies live.
 4. Sound is stored as `sound: true` plus `soundVolume` and `soundFrom`; a volume of `0` is silence by design.
+
+## Colors do not change with the combo
+
+All presets use the same count thresholds: 10, 20 and 50. Set `accentColor` and `numberColor` to automatic (empty strings) in both the profile settings and the local gear panel to restore count-driven colors.

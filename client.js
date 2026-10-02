@@ -276,12 +276,13 @@ window.__ModuleLoader__.load({
     }
 
     // ---------------------------------------------------------------------
-    // Sound: a short synthesized blip, never an audio asset. Browsers start an
+    // Sound: a soft percussive hit, never an audio asset. Browsers start an
     // AudioContext suspended, so it is created lazily and resumed on the first
     // gesture (the very typing that starts a turn is one).
     // ---------------------------------------------------------------------
     let audioEngine = null
     let gestureHooked = false
+    let lastSoundAt = -Infinity
 
     function audioContext() {
       const Ctor = globalThis.AudioContext ?? globalThis.webkitAudioContext
@@ -305,7 +306,7 @@ window.__ModuleLoader__.load({
         const context = audioContext()
         if (context !== null && context.state === 'suspended' && typeof context.resume === 'function') {
           try {
-            context.resume()
+            Promise.resolve(context.resume()).catch(() => {})
           } catch {
             // A refused resume only means silence.
           }
@@ -317,35 +318,41 @@ window.__ModuleLoader__.load({
       document.addEventListener('keydown', unlock)
     }
 
-    /**
-     * One blip whose pitch rises with the combo. Every failure mode here is
-     * silent on purpose: audio is decoration, never a reason to break a render.
-     */
-    function playBlip(shown, tier, volume) {
+    /** A soft percussive hit. Tier pitches are consonant and remain bounded. */
+    function playBlip(shown, tier, volume, preview = false) {
       if (!(volume > 0)) return
       try {
         const context = audioContext()
         if (context === null || typeof context.createOscillator !== 'function') return
         if (context.state === 'suspended') {
           unlockOnGesture()
-          if (typeof context.resume === 'function') context.resume()
+          if (typeof context.resume === 'function') Promise.resolve(context.resume()).catch(() => {})
+          // Never queue stale sounds for playback when the user later unlocks audio.
+          if (!preview) return
         }
         const now = context.currentTime
+        // Parallel tool settlements should sound like one hit, not a loud chord.
+        if (!preview && now - lastSoundAt < 0.06) return
+        lastSoundAt = now
         const oscillator = context.createOscillator()
         const amp = context.createGain()
-        // Two octaves over the first 48 calls, then flat: rising but never shrill.
-        const frequency = 240 * Math.pow(2, Math.min(Math.max(shown, 1), 48) / 24)
-        oscillator.type = tier === 'blaze' ? 'triangle' : 'sine'
+        const frequency = { calm: 330, warm: 392, hot: 440, blaze: 523.25 }[tier] ?? 330
+        oscillator.type = 'sine'
         oscillator.frequency.setValueAtTime(frequency, now)
+        oscillator.frequency.exponentialRampToValueAtTime(frequency * 0.7, now + 0.06)
         amp.gain.setValueAtTime(0.0001, now)
-        amp.gain.exponentialRampToValueAtTime(Math.max(volume * 0.5, 0.0002), now + 0.008)
-        amp.gain.exponentialRampToValueAtTime(0.0001, now + 0.085)
+        amp.gain.exponentialRampToValueAtTime(Math.max(volume * 0.18, 0.0002), now + 0.004)
+        amp.gain.exponentialRampToValueAtTime(0.0001, now + 0.065)
         oscillator.connect(amp)
         amp.connect(context.destination)
+        oscillator.onended = () => {
+          oscillator.disconnect()
+          amp.disconnect()
+        }
         oscillator.start(now)
-        oscillator.stop(now + 0.095)
+        oscillator.stop(now + 0.075)
       } catch {
-        // Ignore: see above.
+        // Sound must never interrupt combo rendering.
       }
     }
 
@@ -579,18 +586,8 @@ window.__ModuleLoader__.load({
       }
 
       const baseTier = tierOf(shown)
-      const palettes = {
-        flames: { accent: '#ffad58', halo: 'rgba(255, 117, 42, .48)', spark: '#ffe0a0' },
-        fireworks: { accent: '#88dcff', halo: 'rgba(89, 191, 255, .45)', spark: '#e0f6ff' },
-        rift: { accent: '#c4a1ff', halo: 'rgba(163, 112, 255, .48)', spark: '#ecdfff' },
-      }
-      const tier = { ...baseTier, ...palettes[preset] }
-      if (preset === 'particles') {
-        const hue = Math.max(0, 100 - Math.max(0, shown - config.powerThreshold) * 1.2)
-        tier.accent = `hsl(${hue}, 85%, 65%)`
-        tier.halo = `hsla(${hue}, 85%, 55%, .4)`
-        tier.spark = `hsl(${hue}, 90%, 85%)`
-      }
+      // Presets choose particle motion; the count alone chooses the palette.
+      const tier = { ...baseTier }
       if (config.accentColor) {
         tier.accent = config.accentColor
         tier.spark = config.accentColor
@@ -633,7 +630,7 @@ window.__ModuleLoader__.load({
       // is the gesture that lets the audio context resume.
       const previewSound = () => {
         const at = Math.max(Math.round(config.soundFrom), 1)
-        playBlip(at, tierOf(at).id, config.soundVolume)
+        playBlip(at, tierOf(at).id, config.soundVolume, true)
       }
       const side = PLACEMENT[config.position] ?? PLACEMENT['top-right']
       const shownTool = streak > 0 ? tool : (ghostShown ? ghost.tool : '')
@@ -659,7 +656,7 @@ window.__ModuleLoader__.load({
         left: side.right ? 'auto' : `${config.offsetX}px`,
       }
 
-      // PowerMode's meter is unboxed: a bright bar over a bold white multiplier.
+      // PowerMode's meter is unboxed: a bright bar over a bold count-colored multiplier.
       const badgeStyle = {
         display: 'inline-flex',
         alignItems: 'baseline',
@@ -672,7 +669,7 @@ window.__ModuleLoader__.load({
         marginTop: '12px',
         background: 'none',
         border: 'none',
-        color: config.numberColor || 'var(--dsw-alias-text-primary, #f5fff0)',
+        color: config.numberColor || tier.accent,
         fontVariantNumeric: 'tabular-nums',
         fontStyle: 'italic',
         fontWeight: 900,
@@ -706,7 +703,7 @@ window.__ModuleLoader__.load({
         transform: 'scaleX(0)',
         animation: `dshcombo-countdown ${timerDuration}ms linear forwards`,
         animationDelay: `-${Math.min(timerElapsed, timerDuration)}ms`,
-        background: config.numberColor || 'var(--dsw-alias-text-primary, #f5fff0)',
+        background: config.numberColor || tier.accent,
         boxShadow: `0 3px 0 ${tier.accent}, 0 0 ${16 * config.glow}px ${tier.halo}, 0 0 ${30 * config.glow}px ${tier.halo}`,
       }
 
@@ -800,7 +797,7 @@ window.__ModuleLoader__.load({
             },
             h('span', { style: numberStyle }, String(shown)),
             h('span', { style: multiplierStyle }, '\u00D7'),
-            config.showTimer && h('span', { key: `timer-${sessionId}-${timerStart}`, style: barStyle, 'data-dsh-combo-bar': '', 'data-dsh-combo-timer-start': timerStart, title: '连击倒计时：每次工具调用重新补满' }),
+            config.showTimer && h('span', { key: `timer-${sessionId}-${timerStart}`, style: barStyle, 'data-dsh-combo-bar': '', 'data-dsh-combo-timer-start': timerStart, title: '连击倒计时：思考完成或工具调用时重新补满' }),
           )),
           h('button', {
             key: 'pin',
@@ -905,9 +902,9 @@ window.__ModuleLoader__.load({
             h('button', { type: 'button', onClick: onPreview }, '预览特效')),
           section('连击与节奏',
             range('timerMs', '倒计时时长', 1000, 60000, 1000, ' ms'),
-            h('p', { key: 'timer-note', style: { margin: '4px 0', opacity: .65, fontSize: '11px' } }, config.expireMs > 0 ? `空闲清零已开启，进度条使用 ${config.expireMs} ms。` : '每次调用补满进度条。耗尽后保留本轮计数。'),
+            h('p', { key: 'timer-note', style: { margin: '4px 0', opacity: .65, fontSize: '11px' } }, config.expireMs > 0 ? `空闲清零已开启，进度条使用 ${config.expireMs} ms。` : '每次连击补满进度条。耗尽后保留本轮计数。'),
             range('powerThreshold', '特效触发门槛', 0, 100, 1, ' 次'),
-            range('effectFrequency', '每几次调用触发特效', 1, 20, 1),
+            range('effectFrequency', '每几次连击触发特效', 1, 20, 1),
             toggle('shake', '连击抖动'), range('shakeIntensity', '抖动强度', 0, 12, .5, ' px')),
           section('外观', range('scale', '计数器大小', .5, 2, .05, '×'),
             range('barHeight', '进度条高度', 2, 16, 1, ' px'), range('glow', '光晕强度', 0, 2, .1),
@@ -917,13 +914,13 @@ window.__ModuleLoader__.load({
             range('particleSpread', '扩散范围', .25, 2, .05, '×'), range('effectDurationMs', '特效时长', 200, 2500, 50, ' ms')),
           section('位置', select('position', '浮层位置', { 'top-right': '右上角', 'top-left': '左上角', 'bottom-right': '右下角', 'bottom-left': '左下角' }),
             range('offsetX', '水平边距', 0, 240, 2, ' px'), range('offsetY', '垂直边距', 0, 240, 2, ' px')),
-          section('显示', toggle('showTimer', '显示倒计时条'), toggle('showGain', '显示增量提示'), toggle('showToolName', '显示工具名'),
+          section('显示', toggle('showTimer', '显示倒计时条'), toggle('showGain', '显示增量提示'), toggle('showToolName', '显示思考 / 工具名'),
             select('animation', '反馈强度', { off: '关闭', normal: '普通', strong: '强烈' })),
           section('音效', toggle('sound', '启用音效'),
             range('soundVolume', '音量', 0, 1, .05),
             range('soundFrom', '起播连击数', 0, 100, 1, ' 次'),
             h('p', { key: 'sound-note', style: { margin: '4px 0', opacity: .65, fontSize: '11px' } },
-              config.sound ? `连击达到 ${config.soundFrom} 次后每次调用响一声。` : '音效当前关闭；点「试听」可先听效果。'),
+              config.sound ? `连击达到 ${config.soundFrom} 次后每次连击播放轻击音。` : '音效当前关闭；点「试听」可先听效果。'),
             h('button', { type: 'button', 'data-dsh-combo-setting': 'soundPreview', onClick: onPreviewSound,
               style: { width: '100%', cursor: 'pointer' } }, '试听')),
           h('button', { type: 'button', onClick: onReset, style: { width: '100%', cursor: 'pointer', marginTop: '10px' } }, '恢复默认设置'),
@@ -1031,7 +1028,7 @@ window.__ModuleLoader__.load({
       const { range, toggle, color, section, select, list } = controlKit(config, save)
       const previewSound = () => {
         const at = Math.max(Math.round(config.soundFrom), 1)
-        playBlip(at, tierOf(at).id, config.soundVolume)
+        playBlip(at, tierOf(at).id, config.soundVolume, true)
       }
 
       return h('div', {
@@ -1046,7 +1043,7 @@ window.__ModuleLoader__.load({
           toggle('enabled', '显示连击 HUD'),
           range('timerMs', '倒计时时长', 1000, 60000, 1000, ' ms'),
           range('powerThreshold', '特效触发门槛', 0, 100, 1, ' 次'),
-          range('effectFrequency', '每几次调用触发特效', 1, 20, 1),
+          range('effectFrequency', '每几次连击触发特效', 1, 20, 1),
           toggle('shake', '连击抖动'),
           range('shakeIntensity', '抖动强度', 0, 12, .5, ' px'),
           range('expireMs', '空闲清零', 0, 600000, 1000, ' ms'),
@@ -1070,13 +1067,13 @@ window.__ModuleLoader__.load({
         section('显示',
           toggle('showTimer', '显示倒计时条'),
           toggle('showGain', '显示增量提示'),
-          toggle('showToolName', '显示工具名'),
+          toggle('showToolName', '显示思考 / 工具名'),
           select('animation', '反馈强度', { off: '关闭', normal: '普通', strong: '强烈' })),
         section('音效', toggle('sound', '启用音效'),
           range('soundVolume', '音量', 0, 1, .05),
           range('soundFrom', '起播连击数', 0, 100, 1, ' 次'),
           h('p', { key: 'sound-note', style: { margin: '4px 0', opacity: .65, fontSize: '11px' } },
-            config.sound ? `连击达到 ${config.soundFrom} 次后每次调用响一声。` : '音效当前关闭；点「试听」可先听效果。'),
+            config.sound ? `连击达到 ${config.soundFrom} 次后每次连击播放轻击音。` : '音效当前关闭；点「试听」可先听效果。'),
           h('button', { type: 'button', 'data-dsh-combo-setting': 'soundPreview', onClick: previewSound,
             style: { width: '100%', cursor: 'pointer' } }, '试听')),
         section('高级', list('excludeTools', '不计入连击的工具', 'bash, edit')),

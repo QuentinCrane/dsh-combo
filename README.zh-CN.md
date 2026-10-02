@@ -2,13 +2,13 @@
 
 [English](README.md) | 简体中文
 
-dsh-combo 是 DeepSeek Harness（DSH）的轻量级插件，可在 DSH Web 界面和 DSH Desktop 桌面应用中显示每轮工具调用连击数。每次已提交的 `tool/call` 加一，到当前 turn 边界时清零。
+dsh-combo 是 DeepSeek Harness（DSH）的轻量级插件，可在 DSH Web 界面和 DSH Desktop 桌面应用中显示每轮思考与工具调用连击数。每次完整模型输出（`assistant/message`）和已提交的 `tool/call` 各加一，到当前 turn 边界时清零。
 
 ![Countdown demo](docs/combo-countdown.gif)
 
 ## 功能
 
-- 读取 Host 提供的 `dshCombo` 会话投影；`tool/result` 和其他事件不计数。
+- 读取 Host 提供的 `dshCombo` 会话投影；`tool/result`、流式片段和失败重试不计数。
 - 默认按 turn 计数；可通过 `expireMs` 选择启用空闲超时。
 - 显示最近调用的工具、分档视觉反馈、可选音效，并可按会话 pin 连击，在多轮之间累计。
 - 在侧栏**插件**页有独立的配置页，全部设置（含音效开关、音量、起播连击数）保存到 profile 并立即生效。
@@ -99,12 +99,12 @@ DSH patch layer 会替换该行完整的 `config` 对象。覆盖时，请把想
 | `enabled` | `true` | 显示 HUD。 |
 | `showToolName` | `true` | 在计数器下方显示最近调用的工具。 |
 | `animation` | `normal` | `off`、`normal` 或 `strong`；`strong` 使用幅度更大的弹跳动画。系统减少动态效果设置会关闭 CSS 动画。 |
-| `particles` | `true` | 动画开启时，每次工具调用触发当前预设的特效，连击越高粒子越密。 |
+| `particles` | `true` | 动画开启时，每次连击增长触发当前预设的特效，连击越高粒子越密。 |
 | `preset` | `particles` | 默认特效：`particles`（粒子）、`flames`（火焰）、`fireworks`（烟花）、`rift`（裂隙）。 |
 | `position` | `top-right` | `top-right`、`top-left`、`bottom-right` 或 `bottom-left`。 |
 | `excludeTools` | `[]` | 忽略的工具名，不区分大小写。 |
 | `expireMs` | `0` | 可选的空闲重置时长，单位毫秒；`0` 表示关闭。最大值：`600000`。 |
-| `sound` | `false` | 播放合成短音。 |
+| `sound` | `false` | 播放柔和短促的轻击音；60 ms 内密集调用合并为一次。 |
 | `soundVolume` | `0.35` | 音量，范围 `0`–`1`。 |
 | `soundFrom` | `10` | 从第几次连击开始播放声音，范围 `0`–`1000`。 |
 | `pinPromptMs` | `5000` | turn 结束后，至少有 2 次调用的连击可被 pin 的停留时间。最大值：`60000`；`0` 表示不提示。 |
@@ -119,9 +119,9 @@ DSH patch layer 会替换该行完整的 `config` 对象。覆盖时，请把想
 
 | 设置 | 默认值 | 范围 | 说明 |
 |---|---|---|---|
-| `timerMs` | `10000` | 1000–60000 ms | 倒计时时长；每次工具调用重新补满。开启空闲清零时，未 pin 的连击使用 `expireMs`。 |
+| `timerMs` | `10000` | 1000–60000 ms | 倒计时时长；每次思考完成或工具调用重新补满。开启空闲清零时，未 pin 的连击使用 `expireMs`。 |
 | `powerThreshold` | `0` | 0–1000 | 从第几次连击开始启用反馈和特效。 |
-| `effectFrequency` | `1` | 1–20 | 每几次调用触发一次粒子特效；批量调用跨过触发点时也会触发。 |
+| `effectFrequency` | `1` | 1–20 | 每几次连击触发一次粒子特效；批量调用跨过触发点时也会触发。 |
 | `shake` | `true` | 布尔值 | 独立开关连击抖动。 |
 | `shakeIntensity` | `3` | 0–12 px | 抖动幅度。 |
 | `scale` | `1` | 0.5–2 | 计数器和粒子整体缩放。 |
@@ -133,23 +133,25 @@ DSH patch layer 会替换该行完整的 `config` 对象。覆盖时，请把想
 | `particleSpread` | `1` | 0.25–2 | 扩散距离倍率。 |
 | `effectDurationMs` | `820` | 200–2500 ms | 粒子动画持续时间。 |
 | `glow` | `1` | 0–2 | 光晕强度；`0` 关闭光晕。 |
-| `accentColor` | `''` | #RRGGBB 或空字符串 | 自定义光晕与粒子颜色；空字符串沿用预设配色。 |
-| `numberColor` | `''` | #RRGGBB 或空字符串 | 自定义数字与进度条颜色；空字符串跟随界面主题。 |
+| `accentColor` | `''` | #RRGGBB 或空字符串 | 自定义光晕与粒子颜色；空字符串随连击数分档变色。 |
+| `numberColor` | `''` | #RRGGBB 或空字符串 | 自定义数字与进度条颜色；空字符串随连击数分档变色。 |
 | `showGain` | `true` | 布尔值 | 显示 `+N` 增量提示。 |
 | `showTimer` | `true` | 布尔值 | 显示倒计时条。 |
 
-设计参考 [VS Code PowerMode](https://github.com/hoovercj/vscode-power-mode)：用剩余时间表示连击节奏，以触发门槛和频率调节特效，预设与独立自定义参数组合使用。本插件使用 CSS 动画与 DSH 会话投影实现，工具调用是反馈来源。
+设计参考 [VS Code PowerMode](https://github.com/hoovercj/vscode-power-mode)：用剩余时间表示连击节奏，以触发门槛和频率调节特效，预设与独立自定义参数组合使用。本插件使用 CSS 动画与 DSH 会话投影实现，完整模型输出与工具调用共同驱动反馈。
 
 ## 显示规则
 
+一次思考按模型的一轮完整输出计数，即使模型不提供显式推理文本也适用，标签显示为「思考」。流式片段、失败重试、中断输出、历史替换和同一 turn/step 的重复结算不计数。思考与工具调用都会补满倒计时。
+
 | 连击数 | 显示效果 |
 |---|---|
-| 1–9 | 白色粗体倍率、顶部亮条、绿色微光和像素粒子 |
+| 1–9 | 绿色粗体倍率、顶部亮条和微光和像素粒子 |
 | 10–19 | 更大倍率、黄绿色光晕和更多粒子 |
 | 20–49 | 黄色光晕、轻微抖动和更密集的粒子 |
 | 50+ | 橙色光晕、最大倍率和最密集的粒子 |
 
-HUD 使用 PowerMode 风格的「数字 × + 顶部亮条」，无卡片底色。计数器下方的样式下拉框可即时切换四种特效，并预览一次动画。选择保存在本机 `localStorage`，优先于配置中的默认 `preset`，不改变连击计数。其他预设使用各自的配色：火焰为橙色、烟花为蓝色、裂隙为紫色。
+HUD 使用 PowerMode 风格的「数字 × + 顶部亮条」，无卡片底色。计数器下方的样式下拉框可即时切换四种特效，并预览一次动画。选择保存在本机 `localStorage`，优先于配置中的默认 `preset`，不改变连击计数。所有预设统一随 combo 数量变色：1–9 绿色、10–19 黄绿、20–49 黄色、50+ 橙色。预设只改变动画形态；手动指定的颜色仍优先。
 
 点击 📌 可将当前会话的连击保持为 streak。未 pin 的 turn 结束后，至少 2 次调用的连击会按 `pinPromptMs` 暗色停留；在这段时间内 pin，即可在后续 turn 继续累计。Pin 状态会保存到本地存储，刷新页面后仍然保留。
 

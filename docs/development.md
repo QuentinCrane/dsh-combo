@@ -5,7 +5,7 @@
 ## Runtime path
 
 1. The Host plugin registers the `dshCombo` unit with `ctx.sessionProjections`.
-2. The unit increments on committed `tool/call` events and clears at `turn/start` or `turn/end`. It publishes `{ combo, tool, changedAt }` as the Client view.
+2. The unit increments on completed `assistant/message` rounds and committed `tool/call` events and clears at `turn/start` or `turn/end`. It publishes `{ combo, tool, changedAt }` as the Client view.
 3. The Client plugin registers a component in `shell.overlay` through `ctx.slots.inject()`.
 4. `uiSession.adapter.current` is the root adapter's observable current binding. The binding's `key` identifies the Session; `sessions.binding(id).session.projections.faceOf('dshCombo')` returns the projection observable.
 5. `/dsh-combo/config` serves the validated row config to the browser, recomputed on every request so a settings write is visible at once. If that route is unavailable, the Client uses its local defaults.
@@ -35,3 +35,5 @@ Run the unit tests with `npm test`. They use small local shims for React and Sch
 For an integration smoke check, install this checkout into a disposable or development profile, inspect `dsh --profile <profile> --dump-config`, start that profile, and confirm the HUD appears after a tool call and disappears at turn end. The same Client module is used by the Web profile and DSH Desktop's embedded Web UI; Desktop installs use the `desktop` profile. Repeat with `enabled: false` and with an idle timeout if those options changed.
 
 The public DSH contract references are linked from the main README. DSH is in developer preview; if an upstream contract changes, update the implementation, fixture, and these notes together.
+
+Projection state version 3 rebuilds earlier checkpoints with thinking included. The last counted turn/step deduplicates model settlements; interrupted messages, non-append surface operations and assistant attempts are ignored. Presets share combo-tier colors. Audio uses bounded tier pitches, a falling pitch envelope, a quiet 75 ms hit and a 60 ms burst guard; automatic hits are dropped while audio is locked.

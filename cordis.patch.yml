@@ -17,7 +17,7 @@
         particles: true
         # particles | flames | fireworks | rift
         preset: particles
-        # Countdown refills on calls; idle reset still uses expireMs.
+        # Countdown refills on thoughts and tool calls; idle reset still uses expireMs.
         timerMs: 10000
         powerThreshold: 0
         effectFrequency: 1
@@ -42,11 +42,11 @@
         excludeTools: []
         # 0 = purely turn-based. >0 breaks a run after that many idle milliseconds.
         expireMs: 0
-        # sound is opt-in: a long turn would otherwise be a long run of beeps
+        # sound is opt-in: a long turn would otherwise be a long run of sounds
         sound: false
         # 0 – 1
         soundVolume: 0.35
-        # the combo at which beeping starts
+        # the combo at which soft hits start
         soundFrom: 10
         # how long a finished run stays offered for keeping; 0 = never
         pinPromptMs: 5000

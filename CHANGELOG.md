@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0 — 2026-10-03
+
+- Count each completed model round as one combo alongside tool calls; ignore stream chunks, failures, interrupted output, history replacements and repeated settlement. Rebuild projection checkpoints with state version 3.
+- Drive number, bar, glow and particle colors from combo count across all presets. Explicit color overrides remain supported.
+- Replace rising electronic beeps with quiet 75 ms percussive hits, bounded musical tier pitches, a downward envelope and a 60 ms overlap guard. Locked browsers drop automatic hits rather than queueing them.
+
 ## 0.4.0 — 2026-10-02
 
 - Added a dedicated configuration page: the bundle now appears under **Plugins → dsh-combo → 配置** with every setting in one place, saved into the profile's row config instead of one browser's local storage.

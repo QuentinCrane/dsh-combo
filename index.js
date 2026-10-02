@@ -2,14 +2,14 @@
  * dsh-combo — Host half.
  *
  * The only Host responsibility is to keep ONE per-session value that answers:
- * "how many tool calls has the current agent turn made so far?"
+ * "how many model steps and tool calls has the current agent turn completed?"
  *
  * It is a session projection unit (`ctx.sessionProjections`), so the framework
  * drives it over committed session events and serves it to the browser as a
  * wire view. The Client never folds session events itself.
  *
  * Combo semantics (this plugin's product boundary):
- *   1. tool call  = +1 combo          (event `tool/call`, never `tool/result`)
+ *   1. completed model step or tool call = +1 combo          (events `assistant/message` and `tool/call`, never stream deltas)
  *   2. one turn   = one combo session (close on `turn/start` and `turn/end`)
  *   3. no time decay unless opted in  (`expireMs`; 0 keeps it purely turn-based)
  *
@@ -32,7 +32,7 @@ import z from '@deepseek-ai/schemastery'
 const PLUGIN_ID = 'dsh-combo'
 const PROJECTION_KEY = 'dshCombo'
 const CONFIG_ROUTE = '/dsh-combo/config'
-const CONFIG_REVISION = 4
+const CONFIG_REVISION = 5
 
 /** Positions accepted by both halves; the Client maps them onto CSS edges. */
 const POSITIONS = ['top-right', 'top-left', 'bottom-right', 'bottom-left']
@@ -237,18 +237,29 @@ export function foldCombo(state, event, options = {}) {
   const excluded = options.excluded ?? NO_EXCLUSIONS
   const expireMs = Number.isFinite(options.expireMs) ? options.expireMs : 0
 
-  if (event !== null && typeof event === 'object' && event.type === 'tool/call') {
-    const name = event.data !== undefined && typeof event.data.name === 'string' ? event.data.name : ''
-    if (excluded.has(name.toLowerCase())) return state
+  if (event === null || typeof event !== 'object') return state
+  const thought = event.type === 'assistant/message'
+  if (thought || event.type === 'tool/call') {
+    // Count one settled model round, including providers without exposed reasoning.
+    // Stream deltas, failed attempts, interrupted prefixes and history rewrites
+    // never earn a combo. One turn/step identity prevents repeated settlement.
+    const data = event.data
+    const thoughtKey = thought && Number.isInteger(data?.turn) && Number.isInteger(data?.step)
+      ? `${data.turn}:${data.step}` : null
+    if (thought && (thoughtKey === null || data.interrupted === true ||
+      (event.surfaceOp !== undefined && event.surfaceOp !== 'append') ||
+      state.lastThought === thoughtKey)) return state
+    const name = thought ? '思考' : typeof data?.name === 'string' ? data.name : ''
+    if (!thought && excluded.has(name.toLowerCase())) return state
     const at = typeof event.time === 'number' ? event.time : state.lastCallAt
     // An opted-in idle break restarts the run, exactly as a turn boundary would:
     // the call that arrives after the gap is the first one of a fresh combo.
     const stale = expireMs > 0 && state.combo > 0 && at - state.lastCallAt > expireMs
     return {
+      ...state,
+      ...(thought ? { lastThought: thoughtKey } : {}),
       combo: stale ? 1 : state.combo + 1,
-      // Sequential calls inside one step arrive as a run of `tool/call` events,
-      // so the last one is the current tool. The label is never cleared on its
-      // own: it should keep naming the last tool while the agent thinks.
+      // The label names the latest counted activity, either thinking or a tool.
       tool: name,
       lastCallAt: at,
       updatedAt: state.updatedAt + 1,
@@ -258,7 +269,7 @@ export function foldCombo(state, event, options = {}) {
     // A replaced (replayed/rewritten) turn boundary is not a fresh turn.
     if (event.surfaceOp !== undefined && event.surfaceOp !== 'append') return state
     if (state.combo === 0 && state.tool === '') return state
-    return { combo: 0, tool: '', lastCallAt: state.lastCallAt, updatedAt: state.updatedAt + 1 }
+    return { ...state, combo: 0, tool: '', lastThought: null, lastCallAt: state.lastCallAt, updatedAt: state.updatedAt + 1 }
   }
   return state
 }
@@ -318,8 +329,8 @@ export function apply(ctx, config) {
   // One combo value per session, driven by the framework over committed events.
   ctx.sessionProjections.register({
     key: PROJECTION_KEY,
-    stateVersion: 2,
-    init: () => ({ combo: 0, tool: '', lastCallAt: 0, updatedAt: 0 }),
+    stateVersion: 3,
+    init: () => ({ combo: 0, tool: '', lastThought: null, lastCallAt: 0, updatedAt: 0 }),
     apply: (state, event) => {
       const cfg = live()
       const excluded = new Set(cfg.excludeTools.map((tool) => String(tool).toLowerCase()))

@@ -64,17 +64,19 @@ function fakeStorage() {
 }
 
 /** A WebAudio stand-in that records every blip the bundle tries to play. */
-function fakeAudio() {
+function fakeAudio(state = 'running') {
   const played = []
+  const contexts = []
   class FakeOscillator {
     constructor() {
       this.type = 'sine'
       this.hz = 0
-      this.frequency = { setValueAtTime: (value) => { this.hz = value } }
+      this.frequency = { setValueAtTime: (value) => { this.hz = value }, exponentialRampToValueAtTime: (value) => { this.endHz = value } }
     }
     connect() {}
-    start() { played.push({ type: this.type, hz: this.hz }) }
+    start() { played.push({ type: this.type, hz: this.hz, endHz: this.endHz }) }
     stop() {}
+    disconnect() {}
   }
   class FakeGain {
     constructor() {
@@ -84,7 +86,8 @@ function fakeAudio() {
   }
   class FakeAudioContext {
     constructor() {
-      this.state = 'running'
+      this.state = state
+      contexts.push(this)
       this.currentTime = 0
       this.destination = {}
     }
@@ -92,7 +95,7 @@ function fakeAudio() {
     createGain() { return new FakeGain() }
     resume() {}
   }
-  return { played, Ctor: FakeAudioContext }
+  return { played, contexts, advance: () => { for (const context of contexts) context.currentTime += .1 }, Ctor: FakeAudioContext }
 }
 
 /**
@@ -606,7 +609,7 @@ test('sound stays silent unless it is switched on', async () => {
   }
 })
 
-test('sound plays from soundFrom upward, with a rising pitch', async () => {
+test('sound uses soft downward hits with bounded musical tier pitches', async () => {
   const audio = fakeAudio()
   const previous = globalThis.AudioContext
   globalThis.AudioContext = audio.Ctor
@@ -623,11 +626,19 @@ test('sound plays from soundFrom upward, with a rising pitch', async () => {
     comboFace.set({ combo: 10, tool: 'bash' })
     mounted.update()
     assert.equal(audio.played.length, 1, 'the crossing call beeps')
+    comboFace.set({ combo: 11, tool: 'bash' })
+    mounted.update()
+    assert.equal(audio.played.length, 1, 'rapid calls coalesce into one hit')
+    audio.advance()
     comboFace.set({ combo: 12, tool: 'bash' })
     mounted.update()
     assert.equal(audio.played.length, 2)
-    assert.ok(audio.played[1].hz > audio.played[0].hz, 'pitch rises with the combo')
-    assert.ok(audio.played[1].hz < 2000, 'and stays inside a bearable band')
+    assert.equal(audio.played[1].hz, audio.played[0].hz, 'ordinary calls retain their tier pitch')
+    audio.advance()
+    comboFace.set({ combo: 50, tool: 'bash' })
+    mounted.update()
+    assert.equal(audio.played[2].hz, 523.25)
+    assert.ok(audio.played.every(hit => hit.type === 'sine' && hit.endHz < hit.hz), 'all tiers are soft falling hits')
   } finally {
     globalThis.AudioContext = previous
   }
@@ -685,13 +696,14 @@ test('the HUD panel carries the sound controls, and 试听 auditions while sound
     assert.ok(preview, 'the panel offers a 试听 control')
     preview.props.onClick()
     assert.equal(audio.played.length, 1, '试听 plays one blip even while the switch is off')
-    assert.equal(audio.played[0].hz, 240 * Math.pow(2, 4 / 24), 'auditioned at the configured starting combo')
+    assert.equal(audio.played[0].hz, 330, 'auditioned at the configured starting combo')
 
     setting('sound').props.onChange({ target: { checked: true } })
     fixture.mounted.update()
     fixture.comboFace.set({ combo: 3, tool: 'read' })
     fixture.mounted.update()
     assert.equal(audio.played.length, 1, 'below soundFrom stays silent')
+    audio.advance()
     fixture.comboFace.set({ combo: 4, tool: 'read' })
     fixture.mounted.update()
     assert.equal(audio.played.length, 2, 'the crossing call beeps')
@@ -940,4 +952,52 @@ test('restoring an old conversation uses its original countdown timestamp', asyn
   const bar = findAll(mounted, node => node.attributes?.['data-dsh-combo-bar'] !== undefined)[0]
   assert.equal(bar.style.animationDelay, '-2000ms', 'a stale combo must not get a new full timer')
   assert.equal(bar.style.animation, 'dshcombo-countdown 2000ms linear forwards', 'functional timer remains when feedback motion is off')
+})
+
+
+test('all presets color the number, bar and particles by combo count', async () => {
+  for (const preset of ['particles', 'flames', 'fireworks', 'rift']) {
+    const { mounted, comboFace } = mountCombo({ config: { preset }, combo: { combo: 8, tool: 'read' } })
+    await settle()
+    const colors = []
+    for (const [score, color] of [[9, '#9be779'], [10, '#b9ee72'], [20, '#ffd968'], [50, '#ff936b']]) {
+      comboFace.set({ combo: score, tool: '思考' })
+      mounted.update()
+      assert.equal(badge(mounted).style.color, color)
+      const bar = findAll(mounted, node => node.attributes?.['data-dsh-combo-bar'] !== undefined)[0]
+      assert.equal(bar.style.background, color)
+      const burst = findAll(mounted, node => node.attributes?.['data-dsh-combo-burst'] !== undefined)[0]
+      assert.ok(burst.children.some(node => node.style?.background === color))
+      colors.push(color)
+    }
+    assert.equal(new Set(colors).size, 4)
+  }
+})
+
+test('explicit color overrides remain stable across combo tiers', async () => {
+  const { mounted, comboFace } = mountCombo({ config: { numberColor: '#abcdef', accentColor: '#123456' }, combo: { combo: 9, tool: 'read' } })
+  await settle()
+  comboFace.set({ combo: 50, tool: '思考' })
+  mounted.update()
+  assert.equal(badge(mounted).style.color, '#abcdef')
+  const bar = findAll(mounted, node => node.attributes?.['data-dsh-combo-bar'] !== undefined)[0]
+  assert.equal(bar.style.background, '#abcdef')
+  assert.ok(bar.style.boxShadow.includes('#123456'))
+})
+
+test('locked audio never queues automatic hits for later playback', async () => {
+  const audio = fakeAudio('suspended')
+  const previous = globalThis.AudioContext
+  globalThis.AudioContext = audio.Ctor
+  try {
+    const { mounted, comboFace } = mountCombo({ config: { sound: true, soundFrom: 0 }, combo: { combo: 0, tool: '' } })
+    await settle()
+    comboFace.set({ combo: 1, tool: '思考' })
+    mounted.update()
+    assert.equal(audio.played.length, 0)
+    audio.contexts[0].state = 'running'
+    comboFace.set({ combo: 2, tool: 'read' })
+    mounted.update()
+    assert.equal(audio.played.length, 1, 'only the new hit plays after unlocking')
+  } finally { globalThis.AudioContext = previous }
 })

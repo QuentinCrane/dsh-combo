@@ -1,7 +1,7 @@
 {
   "name": "dsh-combo",
-  "version": "0.4.0",
-  "description": "PowerMode-style tool-call combo feedback for DeepSeek Harness Web and Desktop, with a countdown, effect presets and live customization.",
+  "version": "0.5.0",
+  "description": "PowerMode-style thinking and tool-call combo feedback for DeepSeek Harness Web and Desktop, with count-driven colors and soft percussive audio.",
   "type": "module",
   "main": "./index.js",
   "repository": {

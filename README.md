@@ -2,7 +2,7 @@
 
 English | [简体中文](README.zh-CN.md)
 
-A lightweight DeepSeek Harness (DSH) plugin that displays per-turn tool-call combos in DSH Web and DSH Desktop. Each committed `tool/call` adds one; the counter resets at a turn boundary.
+A lightweight DeepSeek Harness (DSH) plugin that displays per-turn thinking and tool-call combos in DSH Web and DSH Desktop. Each completed model round (`assistant/message`) and committed `tool/call` adds one; the counter resets at a turn boundary.
 
 ![Countdown demo](docs/combo-countdown.gif)
 
@@ -10,7 +10,7 @@ A lightweight DeepSeek Harness (DSH) plugin that displays per-turn tool-call com
 
 - Reads the Host's `dshCombo` Session Projection. Tool results and unrelated events do not increment the count.
 - Keeps the counter turn-based by default. Set `expireMs` to opt into an idle timeout.
-- Shows the latest tool name, tiered visual feedback, optional sound, and a per-session pin that can carry a streak across turns.
+- Shows the latest thinking/tool activity, tiered visual feedback, optional sound, and a per-session pin that can carry a streak across turns.
 - Carries its own configuration page on the **Plugins** page, where every setting — sound included — is saved into the profile and applied live.
 - Runs in the DSH Web Client, including the Web UI embedded in DSH Desktop. It does not add content to model requests or contact a third-party service. Pin state is stored in the client page's `localStorage`.
 
@@ -99,28 +99,30 @@ DSH patch layers replace a row's complete `config` object. Include every setting
 | `enabled` | `true` | Show the HUD. |
 | `showToolName` | `true` | Show the most recent tool below the counter. |
 | `animation` | `normal` | `off`, `normal`, or `strong`; `strong` uses a larger pop. Reduced-motion preferences disable CSS animation. |
-| `particles` | `true` | Emit the selected effect on each tool call while animation is enabled; particle density grows with the combo tier. |
+| `particles` | `true` | Emit the selected effect on each combo gain while animation is enabled; particle density grows with the combo tier. |
 | `preset` | `particles` | Default effect: `particles`, `flames`, `fireworks`, or `rift`. |
 | `position` | `top-right` | `top-right`, `top-left`, `bottom-right`, or `bottom-left`. |
 | `excludeTools` | `[]` | Tool names to ignore, matched without case sensitivity. |
 | `expireMs` | `0` | Optional idle reset in milliseconds; `0` disables it. Maximum: `600000`. |
-| `sound` | `false` | Play a short synthesized tone. |
-| `soundVolume` | `0.35` | Tone volume from `0` to `1`. |
-| `soundFrom` | `10` | First count that plays a tone. Range: `0` to `1000`. |
+| `sound` | `false` | Play a soft synthesized percussive hit; rapid calls within 60 ms coalesce. |
+| `soundVolume` | `0.35` | Hit volume from `0` to `1`. |
+| `soundFrom` | `10` | First count that plays a hit. Range: `0` to `1000`. |
 | `pinPromptMs` | `5000` | How long a finished run of at least two calls remains available to pin. Maximum: `60000`; `0` disables the prompt. |
 
 Invalid enum values use their defaults; numeric settings are clamped to their documented ranges. The Host half declares every setting as a volatile field of its Schemastery `Config`, which is what puts them on the Plugins page and lets a write apply without restarting the row.
 
 ## Display behavior
 
+A completed model round counts once even when the provider does not expose reasoning text; its label is 思考. Streaming chunks, failed attempts, interrupted prefixes, history replacements and repeated settlement of the same turn/step do not add combos. Thinking and tools both refill the countdown.
+
 | Count | Display |
 |---|---|
-| 1–9 | White multiplier, bright top bar, green glow and square particles |
+| 1–9 | Green multiplier, bar and glow and square particles |
 | 10–19 | Larger multiplier, yellow-green glow and more particles |
 | 20–49 | Yellow glow, slight shake and denser particles |
 | 50+ | Orange glow, largest multiplier and densest particles |
 
-The unboxed PowerMode-style meter displays a bold multiplier beneath a bright bar. Use the selector below it to switch between particles, flames, fireworks and rift; switching previews the effect without changing the count. Your choice is saved locally and overrides the configured default `preset`. Flames use orange, fireworks blue and rift purple.
+The unboxed PowerMode-style meter displays a bold multiplier beneath a bright bar. Use the selector below it to switch between particles, flames, fireworks and rift; switching previews the effect without changing the count. Your choice is saved locally and overrides the configured default `preset`. All presets share count-driven colors: green at 1–9, yellow-green at 10–19, yellow at 20–49 and orange at 50+. Presets change the motion, while explicit custom colors override this palette.
 
 The 📌 button keeps the current run as a streak for that Session. When an unpinned turn ends, a run of at least two calls stays dimmed for `pinPromptMs`; pin it during that window to continue counting across turns. Pin state survives a page reload in local storage.
 
@@ -132,9 +134,9 @@ The countdown alone does not reset the per-turn count. For PowerMode-style idle 
 
 | Option | Default | Range | Description |
 |---|---|---|---|
-| `timerMs` | `10000` | 1000–60000 ms | Countdown duration; refills on each call. Unpinned idle-reset runs use `expireMs` instead. |
+| `timerMs` | `10000` | 1000–60000 ms | Countdown duration; refills on each thought or tool call. Unpinned idle-reset runs use `expireMs` instead. |
 | `powerThreshold` | `0` | 0–1000 | Combo needed to activate feedback and effects. |
-| `effectFrequency` | `1` | 1–20 | Calls per burst; batches crossing a trigger boundary also emit. |
+| `effectFrequency` | `1` | 1–20 | Combo gains per burst; batches crossing a trigger boundary also emit. |
 | `shake` | `true` | boolean | Independent combo-shake switch. |
 | `shakeIntensity` | `3` | 0–12 px | Shake amplitude. |
 | `scale` | `1` | 0.5–2 | Scale the meter and its particles. |
@@ -146,12 +148,12 @@ The countdown alone does not reset the per-turn count. For PowerMode-style idle 
 | `particleSpread` | `1` | 0.25–2 | Spread multiplier. |
 | `effectDurationMs` | `820` | 200–2500 ms | Burst animation duration. |
 | `glow` | `1` | 0–2 | Glow strength; `0` turns it off. |
-| `accentColor` | `''` | #RRGGBB or empty | Override glow and particle color; empty uses preset colors. |
-| `numberColor` | `''` | #RRGGBB or empty | Override the number and bar color; empty follows the UI theme. |
+| `accentColor` | `''` | #RRGGBB or empty | Override glow and particle color; empty uses combo tier colors. |
+| `numberColor` | `''` | #RRGGBB or empty | Override the number and bar color; empty follows combo tier colors. |
 | `showGain` | `true` | boolean | Display the floating `+N` gain. |
 | `showTimer` | `true` | boolean | Display the countdown bar. |
 
-Inspired by [VS Code PowerMode](https://github.com/hoovercj/vscode-power-mode): remaining time expresses rhythm, threshold and frequency control feedback, and presets combine with independent customization. This implementation uses CSS animations and DSH session projections, with tool calls driving feedback.
+Inspired by [VS Code PowerMode](https://github.com/hoovercj/vscode-power-mode): remaining time expresses rhythm, threshold and frequency control feedback, and presets combine with independent customization. This implementation uses CSS animations and DSH session projections, with completed model rounds and tool calls driving feedback.
 
 ## Repository layout
 
