@@ -153,7 +153,7 @@ dsh-combo/
 ├── cordis.patch.yml      # Installable DSH bundle layer
 ├── package.json          # Bundle and Client module manifests
 ├── test/                 # Host and Client unit tests with local runtime shims
-├── docs/                 # Development and troubleshooting notes
+├── docs/                 # Development, publishing, and troubleshooting notes
 ├── README.md
 ├── README.zh-CN.md
 ├── CONTRIBUTING.md
@@ -170,6 +170,8 @@ npm test
 ```
 
 The Client reads the active binding from `uiSession.adapter.current` and subscribes to `sessions.binding(id).session.projections.faceOf('dshCombo')`. The Host owns the fold over committed Session events. `dsh.client.inject` lists package relationships; the Client plugin's exported Cordis `inject` list declares the runtime services it waits for.
+
+Release and npm distribution notes live in [docs/publishing.md](docs/publishing.md): the release workflow tests, publishes the version to npm once `NPM_TOKEN` is configured, and always creates the GitHub release with the packed tarball.
 
 For the public bundle and Client contracts, see the [DSH plugin publishing guide](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/user/develop/basic/publish.md), [Client Modules reference](https://deepseek-harness.github.io/deepseek-harness/en/reference/subsystems/client-modules), [Session Projections reference](https://deepseek-harness.github.io/deepseek-harness/en/reference/subsystems/session-projection), [official Client package rules](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/client/AGENTS.md), and [Desktop guide](https://github.com/deepseek-ai/deepseek-harness/blob/master/apps/desktop/README.md). DSH is in developer preview and may introduce breaking API changes.
 

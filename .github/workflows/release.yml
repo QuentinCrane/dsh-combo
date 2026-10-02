@@ -6,6 +6,8 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
+  # npm provenance signs the published tarball with this run's OIDC identity.
+  id-token: write
 concurrency:
   group: release
   cancel-in-progress: false
@@ -17,7 +19,24 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+          # Writes .npmrc with //registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}.
+          registry-url: 'https://registry.npmjs.org'
       - run: npm test
+      - name: Publish the version to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if [ -z "${NODE_AUTH_TOKEN}" ]; then
+            echo "::notice::NPM_TOKEN is not configured; skipping npm publish for dsh-combo@${version}."
+            exit 0
+          fi
+          if [ "$(npm view "dsh-combo@${version}" version 2>/dev/null)" = "${version}" ]; then
+            echo "dsh-combo@${version} is already published; skipping."
+            exit 0
+          fi
+          npm publish --provenance --access public
+          echo "Published dsh-combo@${version} to npm."
       - name: Pack and publish the versioned artifact
         env:
           GH_TOKEN: ${{ github.token }}

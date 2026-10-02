@@ -153,7 +153,7 @@ dsh-combo/
 ├── cordis.patch.yml      # 可安装的 DSH bundle layer
 ├── package.json          # Bundle 与 Client 模块清单
 ├── test/                 # 使用本地运行时替身的 Host / Client 单元测试
-├── docs/                 # 开发与故障排查说明
+├── docs/                 # 开发、发布与故障排查说明
 ├── README.md
 ├── README.zh-CN.md
 ├── CONTRIBUTING.md
@@ -170,6 +170,8 @@ npm test
 ```
 
 Client 从 `uiSession.adapter.current` 读取当前 binding，再通过 `sessions.binding(id).session.projections.faceOf('dshCombo')` 订阅投影。Host 负责折叠已提交的会话事件。`dsh.client.inject` 声明包之间的关系；Client 插件导出的 Cordis `inject` 数组声明运行时需要等待的服务。
+
+发布与 npm 分发说明见 [docs/publishing.md](docs/publishing.md)：release workflow 会先跑测试，配置 `NPM_TOKEN` 后把当前版本发布到 npm，并始终创建带 tarball 的 GitHub Release。
 
 官方 bundle 和 Client 规范：[DSH 插件发布指南](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/user/develop/basic/publish.md)、[Client Modules 参考](https://deepseek-harness.github.io/deepseek-harness/en/reference/subsystems/client-modules)、[Session Projections 参考](https://deepseek-harness.github.io/deepseek-harness/en/reference/subsystems/session-projection)、[官方 Client 包规范](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/client/AGENTS.md)和 [Desktop 指南](https://github.com/deepseek-ai/deepseek-harness/blob/master/apps/desktop/README.md)。DSH 目前处于 developer preview，后续版本可能引入破坏性 API 变更。
 

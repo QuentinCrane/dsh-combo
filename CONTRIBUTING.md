@@ -20,6 +20,10 @@ dsh --profile <development-profile> --dump-config
 
 Run the profile for a live Client smoke check after the local suite. The Client runs in both the Web profile and DSH Desktop's embedded Web UI. Tests use local runtime shims and do not prove compatibility with every DSH release.
 
+## Releasing
+
+Bump `version` in `package.json`, add the matching `## <version> ` section to `CHANGELOG.md`, and push to `main`. The release workflow runs the tests, publishes the version to npm when `NPM_TOKEN` is configured, and creates the GitHub release with the packed tarball. See [docs/publishing.md](docs/publishing.md) for the token setup, verification commands, and failure handling.
+
 ## Reporting a problem
 
 Include the DSH version, profile surface (Web or Desktop Web UI), expected behavior, observed behavior, and the smallest relevant config. Remove private session content and credentials before sharing logs or screenshots.
