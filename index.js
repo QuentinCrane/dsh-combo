@@ -98,7 +98,9 @@ export const CONFIG_DEFAULTS = {
   soundFrom: 10,
   pinPromptMs: 5000,
   screenVignette: false,
-  recapCard: true,
+  recapCard: false,
+  showMilestones: false,
+  showCrit: false,
 }
 
 /**
@@ -154,6 +156,8 @@ export const Config = z.object({
   pinPromptMs: z.any().default(CONFIG_DEFAULTS.pinPromptMs).volatile(),
   screenVignette: z.any().default(CONFIG_DEFAULTS.screenVignette).volatile(),
   recapCard: z.any().default(CONFIG_DEFAULTS.recapCard).volatile(),
+  showMilestones: z.any().default(CONFIG_DEFAULTS.showMilestones).volatile(),
+  showCrit: z.any().default(CONFIG_DEFAULTS.showCrit).volatile(),
 })
 
 /**
@@ -245,7 +249,9 @@ export function publicConfig(cfg) {
     soundFrom: clampNumber(raw.soundFrom, CONFIG_DEFAULTS.soundFrom, 0, MAX_SOUND_FROM),
     pinPromptMs: clampNumber(raw.pinPromptMs, CONFIG_DEFAULTS.pinPromptMs, 0, MAX_PIN_PROMPT_MS),
     screenVignette: raw.screenVignette === true,
-    recapCard: raw.recapCard !== false,
+    recapCard: raw.recapCard === true,
+    showMilestones: raw.showMilestones === true,
+    showCrit: raw.showCrit === true,
   }
 }
 

@@ -58,7 +58,8 @@
         soundFrom: 10
         # how long a finished run stays offered for keeping; 0 = never
         pinPromptMs: 5000
-        # High-combo screen edge ambient breathing glow
+        # Optional extended visual/milestone feedback (all default off for pure minimal HUD)
         screenVignette: false
-        # Post-turn victory recap badge and stats
-        recapCard: true
+        recapCard: false
+        showMilestones: false
+        showCrit: false

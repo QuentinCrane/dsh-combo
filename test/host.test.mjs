@@ -341,6 +341,10 @@ test('numeric knobs are clamped, and a switch never masquerades as a duration', 
   assert.equal(publicConfig({ screenVignette: false }).screenVignette, false)
   assert.equal(publicConfig({ recapCard: true }).recapCard, true)
   assert.equal(publicConfig({ recapCard: false }).recapCard, false)
+  assert.equal(publicConfig({ showMilestones: true }).showMilestones, true)
+  assert.equal(publicConfig({ showMilestones: false }).showMilestones, false)
+  assert.equal(publicConfig({ showCrit: true }).showCrit, true)
+  assert.equal(publicConfig({ showCrit: false }).showCrit, false)
 })
 
 

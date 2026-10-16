@@ -1458,7 +1458,7 @@ test('switching sound theme preserves active combo count', async () => {
 
 test('innovative features: critical hits, milestones, recap cards, and screen vignette', async () => {
   const { mounted, comboFace } = mountCombo({
-    config: { screenVignette: true, recapCard: true },
+    config: { screenVignette: true, recapCard: true, showCrit: true, showMilestones: true },
     combo: { combo: 0, tool: '' },
   })
   await settle()
@@ -1482,7 +1482,7 @@ test('innovative features: critical hits, milestones, recap cards, and screen vi
   comboFace.set({ combo: 35, tool: 'read' })
   mounted.update()
   const vignette = findAll(mounted, node => node.attributes?.['data-dsh-combo-vignette'] !== undefined)[0]
-  assert.ok(vignette, 'renders screen vignette when streak >= 30 and screenVignette is true')
+  assert.ok(vignette, 'renders screen vignette when streak >= 10 and screenVignette is true')
 
   // 4. Post-turn recap card on run settlement
   comboFace.set({ combo: 0, tool: '' })

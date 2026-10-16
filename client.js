@@ -177,7 +177,9 @@ window.__ModuleLoader__.load({
       soundFrom: 10,
       pinPromptMs: 5000,
       screenVignette: false,
-      recapCard: true,
+      recapCard: false,
+      showMilestones: false,
+      showCrit: false,
     }
 
 
@@ -192,7 +194,7 @@ window.__ModuleLoader__.load({
       for (const key of ['accentColor', 'numberColor']) {
         if (raw[key] === '' || (typeof raw[key] === 'string' && /^#[0-9a-f]{6}$/i.test(raw[key]))) out[key] = raw[key]
       }
-      for (const key of ['showGain', 'showTimer', 'particles', 'showToolName', 'shake', 'sound', 'screenVignette', 'recapCard']) {
+      for (const key of ['showGain', 'showTimer', 'particles', 'showToolName', 'shake', 'sound', 'screenVignette', 'recapCard', 'showMilestones', 'showCrit']) {
         if (typeof raw[key] === 'boolean') out[key] = raw[key]
       }
       if (['off', 'normal', 'strong'].includes(raw.animation)) out.animation = raw.animation
@@ -1395,7 +1397,7 @@ window.__ModuleLoader__.load({
           style,
         },
         config.showGain && gain !== null && h('div', { key: `gain-${pop}`, style: gainStyle, 'aria-hidden': 'true' },
-          gain.crit && h('span', {
+          config.showCrit && gain.crit && h('span', {
             style: {
               fontSize: '10px',
               fontWeight: 900,
@@ -1409,7 +1411,7 @@ window.__ModuleLoader__.load({
             },
           }, 'CRIT!'),
           `+${gain.delta}${config.showToolName && tool ? ` ${tool}` : ''}`),
-        milestone !== null && h('div', {
+        config.showMilestones && milestone !== null && h('div', {
           key: `milestone-${milestone.id}`,
           'data-dsh-combo-milestone': String(milestone.at),
           style: {
@@ -2320,7 +2322,8 @@ window.__ModuleLoader__.load({
 /** Numeric ranges this page edits; the two delays are not on the gear panel. */
     const PAGE_RANGES = { ...CUSTOM_RANGES, expireMs: [0, 600000], pinPromptMs: [0, 60000] }
     /** Switches, including the one that decides whether a HUD exists at all. */
-    const PAGE_SWITCHES = ['enabled', 'showToolName', 'particles', 'shake', 'showGain', 'showTimer', 'screenVignette', 'recapCard']
+    const PAGE_SWITCHES = ['enabled', 'showToolName', 'particles', 'shake', 'showGain', 'showTimer']
+    const OPTIONAL_SWITCHES = ['screenVignette', 'recapCard', 'showMilestones', 'showCrit']
 
     /**
      * Coerce one Host config section into values the controls can draw: a
@@ -2342,6 +2345,7 @@ window.__ModuleLoader__.load({
         config[key] = Number.isFinite(parsed) ? Math.min(Math.max(parsed, min), max) : CONFIG_DEFAULTS[key]
       }
       for (const key of PAGE_SWITCHES) config[key] = unwrapped[key] !== false
+      for (const key of OPTIONAL_SWITCHES) config[key] = unwrapped[key] === true
       // Sound is the one switch that defaults off: an accidental beep is worse
       // than a missing one.
       config.sound = unwrapped.sound === true
@@ -2949,8 +2953,10 @@ window.__ModuleLoader__.load({
             toggle('showTimer', '显示倒计时进度条', '在悬浮窗顶部展示本轮连击有效期的收缩条'),
             toggle('showGain', '显示增量提示 (+N)', '显示如 +1、+3 等单次跃升的浮动数字'),
             toggle('showToolName', '显示思考 / 输出 / 工具名', '显示「思考」、「输出」或调用的具体工具名字'),
+            toggle('showCrit', '暴击角标提示 (CRIT!)', '高吞吐批量跃升时在增量前标记 CRIT!'),
+            toggle('showMilestones', '连击里程碑成就浮现', '达到 10/20/50 等心流阈值时短暂浮现里程碑称号'),
             toggle('recapCard', '回合结束战报卡片 (Turn Recap)', '每轮 Agent 思考执行完成后显示段位评价与战报'),
-            toggle('screenVignette', '高连击全屏边缘光晕 (Screen Vignette)', '连击达到 30+ 时全屏边缘呈现环境心流呼吸光'),
+            toggle('screenVignette', '高连击全屏边缘光晕 (Screen Vignette)', '开启后屏幕四周环绕柔和环境呼吸发光'),
             select('animation', '反馈动画强度', { off: '关闭', normal: '普通', strong: '强烈' }, '控制数字命中时的缩放与倾斜力度'))),
 
         // Tab 6: advanced 高级选项
@@ -3194,6 +3200,8 @@ const POP_TABS = [
               c.toggle('showTimer', '显示倒计时进度条'),
               c.toggle('showGain', '显示连击增量 (+N)'),
               c.toggle('showToolName', '显示思考/输出/工具名'),
+              c.toggle('showCrit', '暴击角标提示 (CRIT!)'),
+              c.toggle('showMilestones', '连击里程碑成就浮现'),
               c.toggle('recapCard', '回合结束战报卡片'),
               c.toggle('screenVignette', '高连击全屏边缘光晕'),
               c.select('animation', '反馈动画力度', { off: '关闭', normal: '普通', strong: '强烈' }))),
@@ -3901,7 +3909,9 @@ const POP_TABS = [
     }
 
     function ScreenVignette({ tier, enabled, streak }) {
-      if (!enabled || streak < 30) return null
+      if (!enabled || streak < 10) return null
+      const glowSpread = Math.min(160, Math.max(36, streak * 2.2))
+      const glowColor = tier.halo || 'rgba(16, 185, 129, 0.45)'
       return h('div', {
         'data-dsh-combo-vignette': '',
         'aria-hidden': 'true',
@@ -3909,10 +3919,10 @@ const POP_TABS = [
           position: 'fixed',
           inset: 0,
           pointerEvents: 'none',
-          zIndex: 10,
-          boxShadow: `inset 0 0 ${Math.min(120, streak * 1.2)}px ${tier.halo}`,
+          zIndex: 9999,
+          boxShadow: `inset 0 0 ${glowSpread}px ${glowColor}, inset 0 0 ${glowSpread / 2}px ${tier.accent || glowColor}`,
           animation: 'dshcombo-vignette-pulse 2s ease-in-out infinite',
-          transition: 'box-shadow 400ms ease',
+          transition: 'box-shadow 360ms ease, opacity 360ms ease',
         },
       })
     }
