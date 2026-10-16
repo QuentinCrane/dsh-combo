@@ -58,3 +58,9 @@
         soundFrom: 10
         # how long a finished run stays offered for keeping; 0 = never
         pinPromptMs: 5000
+        # High-combo screen edge ambient breathing glow
+        screenVignette: false
+        # Post-turn RPG victory recap badge and stats
+        recapCard: true
+        # RPG skill metaphors and critical hit callout
+        rpgMetaphor: true

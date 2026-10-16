@@ -97,6 +97,9 @@ export const CONFIG_DEFAULTS = {
   soundVolume: 0.35,
   soundFrom: 10,
   pinPromptMs: 5000,
+  screenVignette: false,
+  recapCard: true,
+  rpgMetaphor: true,
 }
 
 /**
@@ -150,6 +153,9 @@ export const Config = z.object({
   soundVolume: z.any().default(CONFIG_DEFAULTS.soundVolume).volatile(),
   soundFrom: z.any().default(CONFIG_DEFAULTS.soundFrom).volatile(),
   pinPromptMs: z.any().default(CONFIG_DEFAULTS.pinPromptMs).volatile(),
+  screenVignette: z.any().default(CONFIG_DEFAULTS.screenVignette).volatile(),
+  recapCard: z.any().default(CONFIG_DEFAULTS.recapCard).volatile(),
+  rpgMetaphor: z.any().default(CONFIG_DEFAULTS.rpgMetaphor).volatile(),
 })
 
 /**
@@ -240,6 +246,9 @@ export function publicConfig(cfg) {
     soundVolume: clampNumber(raw.soundVolume, CONFIG_DEFAULTS.soundVolume, 0, 1),
     soundFrom: clampNumber(raw.soundFrom, CONFIG_DEFAULTS.soundFrom, 0, MAX_SOUND_FROM),
     pinPromptMs: clampNumber(raw.pinPromptMs, CONFIG_DEFAULTS.pinPromptMs, 0, MAX_PIN_PROMPT_MS),
+    screenVignette: raw.screenVignette === true,
+    recapCard: raw.recapCard !== false,
+    rpgMetaphor: raw.rpgMetaphor !== false,
   }
 }
 

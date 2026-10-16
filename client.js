@@ -131,6 +131,45 @@ window.__ModuleLoader__.load({
     /** A one-call "combo" is not worth offering to keep. */
     const GHOST_MIN = 2
 
+    /** RPG Skill metaphors for tools and agent actions. */
+    const RPG_ACTIONS = {
+      'bash': { icon: '⚔️', label: '终端重斩', kind: 'physical' },
+      'terminal': { icon: '⚔️', label: '终端重斩', kind: 'physical' },
+      'edit': { icon: '🔨', label: '代码锻造', kind: 'craft' },
+      'write': { icon: '📜', label: '符文撰写', kind: 'craft' },
+      'read': { icon: '👁️', label: '神识洞察', kind: 'scout' },
+      'glob': { icon: '🧭', label: '广域巡视', kind: 'scout' },
+      'grep': { icon: '🔍', label: '灵识聚焦', kind: 'scout' },
+      'web_search': { icon: '🌐', label: '次元求知', kind: 'summon' },
+      'web_fetch': { icon: '📡', label: '虚空引渡', kind: 'summon' },
+      'subagent': { icon: '🛸', label: '分身降临', kind: 'team' },
+      'workflow': { icon: '⚡', label: '矩阵协同', kind: 'team' },
+      'todo_write': { icon: '📋', label: '战术部署', kind: 'plan' },
+      '思考': { icon: '🧠', label: '神游冥想', kind: 'mind' },
+      '输出': { icon: '✨', label: '灵力倾泻', kind: 'cast' },
+    }
+
+    /** Combo Milestone achievements */
+    const COMBO_MILESTONES = [
+      { at: 500, title: '🌌 奇点爆发 (SINGULARITY)', desc: '宇宙算力汇聚于此' },
+      { at: 300, title: '⚡ 赛博通神 (CYBER GOD)', desc: '思维与电路完全同频' },
+      { at: 200, title: '🔥 超限过载 (OVERDRIVE)', desc: '突破一切算力极壁' },
+      { at: 100, title: '💥 算力燃烧 (FULL THROTTLE)', desc: '百连击百步穿杨' },
+      { at: 50, title: '⚡ 极速心流 (HYPER FOCUS)', desc: '行云流水毫无滞碍' },
+      { at: 20, title: '🚀 引擎全开 (IGNITION)', desc: '渐入佳境战意高涨' },
+      { at: 10, title: '✨ 初露锋芒 (FIRST SPARK)', desc: '十步一杀节奏初现' },
+    ]
+
+    function resolveRpgAction(toolName) {
+      if (!toolName) return null
+      const lower = String(toolName).toLowerCase()
+      if (RPG_ACTIONS[lower]) return RPG_ACTIONS[lower]
+      for (const [key, val] of Object.entries(RPG_ACTIONS)) {
+        if (lower.includes(key)) return val
+      }
+      return { icon: '⚡', label: toolName, kind: 'custom' }
+    }
+
     const CONFIG_DEFAULTS = {
       enabled: true,
       comboMode: 'hybrid',
@@ -165,6 +204,9 @@ window.__ModuleLoader__.load({
       soundVolume: 0.35,
       soundFrom: 10,
       pinPromptMs: 5000,
+      screenVignette: false,
+      recapCard: true,
+      rpgMetaphor: true,
     }
 
 
@@ -179,7 +221,7 @@ window.__ModuleLoader__.load({
       for (const key of ['accentColor', 'numberColor']) {
         if (raw[key] === '' || (typeof raw[key] === 'string' && /^#[0-9a-f]{6}$/i.test(raw[key]))) out[key] = raw[key]
       }
-      for (const key of ['showGain', 'showTimer', 'particles', 'showToolName', 'shake', 'sound']) {
+      for (const key of ['showGain', 'showTimer', 'particles', 'showToolName', 'shake', 'sound', 'screenVignette', 'recapCard', 'rpgMetaphor']) {
         if (typeof raw[key] === 'boolean') out[key] = raw[key]
       }
       if (['off', 'normal', 'strong'].includes(raw.animation)) out.animation = raw.animation
@@ -1031,6 +1073,9 @@ window.__ModuleLoader__.load({
       const [gain, setGain] = useState(null)
       const [particles, setParticles] = useState(null)
       const [ghost, setGhost] = useState(null)
+      const [recap, setRecap] = useState(null)
+      const [milestone, setMilestone] = useState(null)
+      const maxStreakRef = useRef(0)
       const [expired, setExpired] = useState(false)
       const [pinState, setPinState] = useState(() => loadPin(sessionId, score))
       // The previously observed cut, so one score can be read as a transition:
@@ -1080,6 +1125,9 @@ window.__ModuleLoader__.load({
           // its own pin as the baseline instead of reading a reset into it.
           setLastCall({ sessionId, at: score > 0 ? combo.changedAt || Date.now() : 0 })
           setGhost(null)
+          setRecap(null)
+          setMilestone(null)
+          maxStreakRef.current = 0
           setGain(null)
           setParticles(null)
           setPop(0)
@@ -1100,6 +1148,12 @@ window.__ModuleLoader__.load({
             // clickable after the number would otherwise be gone.
             setGhost({ value: before, tool: prior.tool, at: Date.now() })
           }
+          if (config.recapCard && before >= 5) {
+            const peak = Math.max(before, maxStreakRef.current)
+            const grade = peak >= 100 ? 'SSS' : peak >= 50 ? 'SS' : peak >= 25 ? 'S' : peak >= 12 ? 'A' : 'B'
+            setRecap({ count: before, peak, tool: prior.tool, grade, at: Date.now() })
+          }
+          maxStreakRef.current = 0
           return undefined
         }
         if (score <= before) return undefined
@@ -1107,9 +1161,17 @@ window.__ModuleLoader__.load({
         // A kept streak is written on every call, so a reload lands back inside
         // the run it was watching instead of on a stale number.
         if (pin.active) savePin(sessionId, pin, score)
+        maxStreakRef.current = Math.max(maxStreakRef.current, streak)
         setLastCall({ sessionId, at: combo.changedAt || Date.now() })
         setPop((token) => token + 1)
-        setGain({ id: score, delta: score - before })
+        const isCrit = (score - before) >= 3
+        setGain({ id: score, delta: score - before, crit: isCrit })
+        for (const ms of COMBO_MILESTONES) {
+          if (streak >= ms.at && (streak - (score - before)) < ms.at) {
+            setMilestone({ ...ms, id: streak, at: Date.now() })
+            break
+          }
+        }
         const frequency = Math.max(1, Math.round(config.effectFrequency))
         if (motion && config.particles && streak >= config.powerThreshold && Math.floor(score / frequency) > Math.floor(before / frequency)) setParticles({ id: pop + 1 })
         if (config.sound && streak >= config.soundFrom) playBlip(streak, tierOf(streak).id, config.soundVolume, false, config.soundTheme)
@@ -1135,6 +1197,18 @@ window.__ModuleLoader__.load({
         const timer = setTimeout(() => setGhost(null), config.pinPromptMs)
         return () => clearTimeout(timer)
       }, [ghost, config.pinPromptMs])
+
+      useEffect(() => {
+        if (milestone === null) return undefined
+        const timer = setTimeout(() => setMilestone(null), 3200)
+        return () => clearTimeout(timer)
+      }, [milestone])
+
+      useEffect(() => {
+        if (recap === null) return undefined
+        const timer = setTimeout(() => setRecap(null), 5200)
+        return () => clearTimeout(timer)
+      }, [recap])
 
       // The idle break the Host already applies to its fold, mirrored on screen:
       // a kept streak is exempt, because a pin says "do not drop this".
@@ -1350,7 +1424,37 @@ window.__ModuleLoader__.load({
           style,
         },
         config.showGain && gain !== null && h('div', { key: `gain-${pop}`, style: gainStyle, 'aria-hidden': 'true' },
+          gain.crit && h('span', {
+            style: {
+              fontSize: '10px',
+              fontWeight: 900,
+              padding: '1px 5px',
+              borderRadius: '3px',
+              background: '#f59e0b',
+              color: '#000000',
+              marginRight: '5px',
+              letterSpacing: '-0.02em',
+              boxShadow: '0 0 8px rgba(245, 158, 11, 0.6)',
+            },
+          }, 'CRIT!'),
           `+${gain.delta}${config.showToolName && tool ? ` ${tool}` : ''}`),
+        milestone !== null && h('div', {
+          key: `milestone-${milestone.id}`,
+          'data-dsh-combo-milestone': String(milestone.at),
+          style: {
+            fontSize: '11px',
+            fontWeight: 800,
+            padding: '2px 8px',
+            borderRadius: '999px',
+            background: 'rgba(0, 0, 0, 0.75)',
+            border: `1px solid ${tier.accent}`,
+            color: tier.accent,
+            boxShadow: `0 0 14px ${tier.halo}`,
+            whiteSpace: 'nowrap',
+            animation: 'dshcombo-recap-pop 320ms cubic-bezier(0.16, 1, 0.3, 1)',
+            pointerEvents: 'none',
+          },
+        }, milestone.title),
         h('div', { key: 'row', style: { display: 'flex', alignItems: 'center', gap: '7px', zoom: config.scale } },
           h('div', {
             key: 'meter',
@@ -1424,6 +1528,18 @@ window.__ModuleLoader__.load({
         ),
         h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', maxWidth: 'calc(100vw - 36px)' } },
           config.showToolName && shownTool !== '' && h('div', { style: toolStyle, 'aria-hidden': 'true' }, shownTool),
+          config.rpgMetaphor && resolveRpgAction(shownTool) && h('span', {
+            'data-dsh-combo-skill': resolveRpgAction(shownTool).kind,
+            style: {
+              fontSize: '10px',
+              color: tier.accent,
+              background: 'rgba(0, 0, 0, 0.45)',
+              padding: '1px 5px',
+              borderRadius: '4px',
+              border: `1px solid ${tier.accent}`,
+              whiteSpace: 'nowrap',
+            },
+          }, `${resolveRpgAction(shownTool).icon} ${resolveRpgAction(shownTool).label}`),
           h('select', {
             'data-dsh-combo-preset-select': '',
             'aria-label': '连击特效样式',
@@ -1438,6 +1554,58 @@ window.__ModuleLoader__.load({
           }, Object.entries(PRESETS).map(([value, label]) => h('option', { key: value, value }, label))),
           h(AppearanceSettings, { config, customize, onReset: resetAppearance, onPreview: previewEffect, onPreviewSound: previewSound, right: side.right, top: side.top }),
         ),
+        recap !== null && h('div', {
+          key: `recap-${recap.at}`,
+          'data-dsh-combo-recap': recap.grade,
+          style: {
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '6px 12px',
+            borderRadius: '10px',
+            background: 'var(--dsw-alias-bg-overlay, rgba(15, 23, 42, 0.92))',
+            border: `1.5px solid ${tier.accent}`,
+            boxShadow: `0 8px 24px -2px rgba(0,0,0,0.45), 0 0 16px ${tier.halo}`,
+            backdropFilter: 'blur(12px)',
+            color: '#f8fafc',
+            pointerEvents: 'auto',
+            animation: 'dshcombo-recap-pop 360ms cubic-bezier(0.16, 1, 0.3, 1)',
+            marginTop: '4px',
+            maxWidth: 'min(320px, calc(100vw - 36px))',
+          },
+        },
+          h('div', {
+            style: {
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '32px',
+              height: '32px',
+              borderRadius: '8px',
+              background: recap.grade === 'SSS' ? 'linear-gradient(135deg, #f59e0b, #ef4444)' : 'linear-gradient(135deg, #3b82f6, #10b981)',
+              fontWeight: 900,
+              fontSize: '13px',
+              color: '#ffffff',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+              fontStyle: 'italic',
+            },
+          }, recap.grade),
+          h('div', { style: { display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, minWidth: 0 } },
+            h('span', { style: { fontSize: '11px', fontWeight: 700, color: tier.accent } }, '回合战报结算 (Turn Recap)'),
+            h('span', { style: { fontSize: '10px', color: '#cbd5e1', lineHeight: 1.3 } },
+              `完成 ${recap.count} 次连携，峰值 ${recap.peak}×，达成 ${recap.grade} 级智能心流`)),
+          h('button', {
+            type: 'button',
+            onClick: () => setRecap(null),
+            style: {
+              padding: '2px 6px',
+              fontSize: '11px',
+              color: '#94a3b8',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+            },
+          }, '✕')),
       )
     }
 
@@ -2193,7 +2361,7 @@ window.__ModuleLoader__.load({
 /** Numeric ranges this page edits; the two delays are not on the gear panel. */
     const PAGE_RANGES = { ...CUSTOM_RANGES, expireMs: [0, 600000], pinPromptMs: [0, 60000] }
     /** Switches, including the one that decides whether a HUD exists at all. */
-    const PAGE_SWITCHES = ['enabled', 'showToolName', 'particles', 'shake', 'showGain', 'showTimer']
+    const PAGE_SWITCHES = ['enabled', 'showToolName', 'particles', 'shake', 'showGain', 'showTimer', 'screenVignette', 'recapCard', 'rpgMetaphor']
 
     /**
      * Coerce one Host config section into values the controls can draw: a
@@ -2396,6 +2564,15 @@ window.__ModuleLoader__.load({
   margin: 6px 0 2px;
   cursor: pointer;
   transition: all 0.2s ease;
+}
+@keyframes dshcombo-recap-pop {
+  0% { transform: scale(0.85); opacity: 0; }
+  50% { transform: scale(1.04); }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes dshcombo-vignette-pulse {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 0.55; }
 }
 .dsh-combo-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -2813,6 +2990,9 @@ window.__ModuleLoader__.load({
             toggle('showTimer', '显示倒计时进度条', '在悬浮窗顶部展示本轮连击有效期的收缩条'),
             toggle('showGain', '显示增量提示 (+N)', '显示如 +1、+3 等单次跃升的浮动数字'),
             toggle('showToolName', '显示思考 / 输出 / 工具名', '显示「思考」、「输出」或调用的具体工具名字'),
+            toggle('rpgMetaphor', 'RPG 动作技能招式化', '将工具调用隐喻为「终端重斩」、「代码锻造」、「神识洞察」等招式'),
+            toggle('recapCard', '回合结束战报卡片 (Turn Recap)', '每轮 Agent 思考执行完成后显示段位评价与战报'),
+            toggle('screenVignette', '高连击全屏边缘光晕 (Screen Vignette)', '连击达到 30+ 时全屏边缘呈现环境心流呼吸光'),
             select('animation', '反馈动画强度', { off: '关闭', normal: '普通', strong: '强烈' }, '控制数字命中时的缩放与倾斜力度'))),
 
         // Tab 6: advanced 高级选项
@@ -3056,6 +3236,9 @@ const POP_TABS = [
               c.toggle('showTimer', '显示倒计时进度条'),
               c.toggle('showGain', '显示连击增量 (+N)'),
               c.toggle('showToolName', '显示思考/输出/工具名'),
+              c.toggle('rpgMetaphor', 'RPG 动作技能招式化'),
+              c.toggle('recapCard', '回合结束战报卡片'),
+              c.toggle('screenVignette', '高连击全屏边缘光晕'),
               c.select('animation', '反馈动画力度', { off: '关闭', normal: '普通', strong: '强烈' }))),
 
           pane('advanced',
@@ -3760,12 +3943,42 @@ const POP_TABS = [
       return h('style', { 'data-dsh-combo-style': '' }, frames.join(''))
     }
 
+    function ScreenVignette({ tier, enabled, streak }) {
+      if (!enabled || streak < 30) return null
+      return h('div', {
+        'data-dsh-combo-vignette': '',
+        'aria-hidden': 'true',
+        style: {
+          position: 'fixed',
+          inset: 0,
+          pointerEvents: 'none',
+          zIndex: 10,
+          boxShadow: `inset 0 0 ${Math.min(120, streak * 1.2)}px ${tier.halo}`,
+          animation: 'dshcombo-vignette-pulse 2s ease-in-out infinite',
+          transition: 'box-shadow 400ms ease',
+        },
+      })
+    }
+
     function ComboRoot(props) {
       useEffect(() => {
         ensureConfigStyles()
       }, [])
+      const hostConfig = useConfig()
+      const [appearance, setAppearance] = useState(readAppearance)
+      useEffect(() => {
+        const sync = () => setAppearance(readAppearance())
+        overrideListeners.add(sync)
+        return () => overrideListeners.delete(sync)
+      }, [])
+      const config = { ...hostConfig, ...appearance }
+      const combo = useCombo(props.sessions, props.uiSession, config)
+      const tier = tierOf(combo.score || 0, config.colorTheme)
+      if (config.accentColor) tier.halo = `rgba(${parseInt(config.accentColor.slice(1,3),16)},${parseInt(config.accentColor.slice(3,5),16)},${parseInt(config.accentColor.slice(5,7),16)},.45)`
+
       return h(React.Fragment, null,
         h(ComboStyles, null),
+        config.screenVignette && h(ScreenVignette, { tier, enabled: config.screenVignette, streak: combo.score || 0 }),
         h(ComboHud, { sessions: props.sessions, uiSession: props.uiSession }),
       )
     }

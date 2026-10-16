@@ -336,6 +336,13 @@ test('numeric knobs are clamped, and a switch never masquerades as a duration', 
   assert.equal(publicConfig({ comboMode: 'tokens' }).comboMode, 'tokens')
   assert.equal(publicConfig({ comboMode: 'tools' }).comboMode, 'tools')
   assert.equal(publicConfig({ comboMode: 'unknown' }).comboMode, 'hybrid')
+
+  assert.equal(publicConfig({ screenVignette: true }).screenVignette, true)
+  assert.equal(publicConfig({ screenVignette: false }).screenVignette, false)
+  assert.equal(publicConfig({ recapCard: true }).recapCard, true)
+  assert.equal(publicConfig({ recapCard: false }).recapCard, false)
+  assert.equal(publicConfig({ rpgMetaphor: true }).rpgMetaphor, true)
+  assert.equal(publicConfig({ rpgMetaphor: false }).rpgMetaphor, false)
 })
 
 
