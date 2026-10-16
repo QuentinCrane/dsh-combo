@@ -341,8 +341,6 @@ test('numeric knobs are clamped, and a switch never masquerades as a duration', 
   assert.equal(publicConfig({ screenVignette: false }).screenVignette, false)
   assert.equal(publicConfig({ recapCard: true }).recapCard, true)
   assert.equal(publicConfig({ recapCard: false }).recapCard, false)
-  assert.equal(publicConfig({ rpgMetaphor: true }).rpgMetaphor, true)
-  assert.equal(publicConfig({ rpgMetaphor: false }).rpgMetaphor, false)
 })
 
 

@@ -60,7 +60,5 @@
         pinPromptMs: 5000
         # High-combo screen edge ambient breathing glow
         screenVignette: false
-        # Post-turn RPG victory recap badge and stats
+        # Post-turn victory recap badge and stats
         recapCard: true
-        # RPG skill metaphors and critical hit callout
-        rpgMetaphor: true

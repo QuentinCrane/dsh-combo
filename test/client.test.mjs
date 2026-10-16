@@ -1456,39 +1456,35 @@ test('switching sound theme preserves active combo count', async () => {
   assert.equal(hud(fixture.mounted).attributes['data-dsh-combo-score'], '16', 'subsequent call continues accumulated combo')
 })
 
-test('innovative features: RPG skill badges, critical hits, milestones, recap cards, and screen vignette', async () => {
-  // 1. RPG skill metaphor rendering
+test('innovative features: critical hits, milestones, recap cards, and screen vignette', async () => {
   const { mounted, comboFace } = mountCombo({
-    config: { rpgMetaphor: true, screenVignette: true, recapCard: true },
+    config: { screenVignette: true, recapCard: true },
     combo: { combo: 0, tool: '' },
   })
   await settle()
   comboFace.set({ combo: 1, tool: 'bash' })
   mounted.update()
-  const skillBadge = findAll(mounted, node => node.attributes?.['data-dsh-combo-skill'] !== undefined)[0]
-  assert.ok(skillBadge, 'renders RPG skill badge on tool call')
-  assert.equal(skillBadge.attributes['data-dsh-combo-skill'], 'physical')
-  assert.ok(ownText(skillBadge).includes('终端重斩'), 'maps bash to 终端重斩')
+  assert.equal(ownText(toolLabel(mounted)), 'bash', 'renders original tool name directly')
 
-  // 2. Critical hit (+3 or higher burst)
+  // 1. Critical hit (+3 or higher burst)
   comboFace.set({ combo: 5, tool: 'edit' })
   mounted.update()
   assert.ok(findAll(mounted, node => ownText(node) === 'CRIT!').length > 0, 'shows CRIT! badge on delta >= 3')
 
-  // 3. Milestone title trigger at milestone threshold (e.g. 10x, 20x)
+  // 2. Milestone title trigger at milestone threshold (e.g. 10x, 20x)
   comboFace.set({ combo: 20, tool: 'write' })
   mounted.update()
   const milestoneTag = findAll(mounted, node => node.attributes?.['data-dsh-combo-milestone'] !== undefined)[0]
   assert.ok(milestoneTag, 'triggers milestone badge on reaching milestone threshold')
   assert.ok(ownText(milestoneTag).includes('IGNITION'), 'milestone tag carries milestone title')
 
-  // 4. High-combo screen edge ambient vignette
+  // 3. High-combo screen edge ambient vignette
   comboFace.set({ combo: 35, tool: 'read' })
   mounted.update()
   const vignette = findAll(mounted, node => node.attributes?.['data-dsh-combo-vignette'] !== undefined)[0]
   assert.ok(vignette, 'renders screen vignette when streak >= 30 and screenVignette is true')
 
-  // 5. Post-turn recap card on run settlement
+  // 4. Post-turn recap card on run settlement
   comboFace.set({ combo: 0, tool: '' })
   mounted.update()
   const recap = findAll(mounted, node => node.attributes?.['data-dsh-combo-recap'] !== undefined)[0]

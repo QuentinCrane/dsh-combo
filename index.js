@@ -99,7 +99,6 @@ export const CONFIG_DEFAULTS = {
   pinPromptMs: 5000,
   screenVignette: false,
   recapCard: true,
-  rpgMetaphor: true,
 }
 
 /**
@@ -155,7 +154,6 @@ export const Config = z.object({
   pinPromptMs: z.any().default(CONFIG_DEFAULTS.pinPromptMs).volatile(),
   screenVignette: z.any().default(CONFIG_DEFAULTS.screenVignette).volatile(),
   recapCard: z.any().default(CONFIG_DEFAULTS.recapCard).volatile(),
-  rpgMetaphor: z.any().default(CONFIG_DEFAULTS.rpgMetaphor).volatile(),
 })
 
 /**
@@ -248,7 +246,6 @@ export function publicConfig(cfg) {
     pinPromptMs: clampNumber(raw.pinPromptMs, CONFIG_DEFAULTS.pinPromptMs, 0, MAX_PIN_PROMPT_MS),
     screenVignette: raw.screenVignette === true,
     recapCard: raw.recapCard !== false,
-    rpgMetaphor: raw.rpgMetaphor !== false,
   }
 }
 
