@@ -9,7 +9,7 @@
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { apply, foldCombo, publicConfig, toComboView, ComboViewSchema, CONFIG_DEFAULTS } from '../index.js'
+import { apply, foldCombo, publicConfig, toComboView, ComboViewSchema, ComboStateSchema, CONFIG_DEFAULTS } from '../index.js'
 
 const call = (name, time = 1000) => ({ type: 'tool/call', data: { callId: `c-${name}-${time}`, name }, time })
 const boundary = (type, surfaceOp = 'append') => ({ type, surfaceOp })
@@ -136,6 +136,21 @@ test('apply() declares a view validator for the carrier', () => {
     inject: () => {},
   })
   assert.equal(typeof units[0].wire.viewSchema.parse, 'function', 'the carrier calls viewSchema.parse on every value')
+  assert.equal(typeof units[0].stateSchema.parse, 'function', 'the unit declares stateSchema.parse for persistence')
+  assert.deepEqual(ComboStateSchema.parse({ combo: 5, tool: 'edit', lastThought: '1:2', lastCallAt: 1234, updatedAt: 6 }), {
+    combo: 5,
+    tool: 'edit',
+    lastThought: '1:2',
+    lastCallAt: 1234,
+    updatedAt: 6,
+  })
+  assert.deepEqual(ComboStateSchema.parse(undefined), {
+    combo: 0,
+    tool: '',
+    lastThought: null,
+    lastCallAt: 0,
+    updatedAt: 0,
+  })
 })
 
 test('apply() registers one projection unit and one config route', () => {
@@ -269,7 +284,7 @@ test('the published config route serves the clamped config', () => {
   assert.equal(head.headers['Cache-Control'], 'no-store')
   assert.equal(payload.config.expireMs, 2_000)
   assert.equal(payload.config.sound, true)
-  assert.equal(payload.revision, 5, 'the revision lets a cached Client notice an upgrade')
+  assert.equal(payload.revision, 6, 'the revision lets a cached Client notice an upgrade')
 })
 
 test('the published config is clamped to known values', () => {
@@ -303,11 +318,29 @@ test('numeric knobs are clamped, and a switch never masquerades as a duration', 
   assert.equal(publicConfig({ pinPromptMs: '800' }).pinPromptMs, 800)
   assert.equal(publicConfig({ pinPromptMs: 9_999_999 }).pinPromptMs, 60_000)
   assert.equal(publicConfig({ pinPromptMs: {} }).pinPromptMs, CONFIG_DEFAULTS.pinPromptMs)
+
+  assert.equal(publicConfig({ tokensPerCombo: 0 }).tokensPerCombo, 1)
+  assert.equal(publicConfig({ tokensPerCombo: 5 }).tokensPerCombo, 5)
+  assert.equal(publicConfig({ tokensPerCombo: '10' }).tokensPerCombo, 10)
+  assert.equal(publicConfig({ tokensPerCombo: 999 }).tokensPerCombo, 100)
+  assert.equal(publicConfig({ tokensPerCombo: {} }).tokensPerCombo, 1)
+
+  assert.equal(publicConfig({ soundTheme: 'keyboard' }).soundTheme, 'keyboard')
+  assert.equal(publicConfig({ soundTheme: 'bubble' }).soundTheme, 'bubble')
+  assert.equal(publicConfig({ soundTheme: 'arcade' }).soundTheme, 'arcade')
+  assert.equal(publicConfig({ soundTheme: 'laser' }).soundTheme, 'laser')
+  assert.equal(publicConfig({ soundTheme: 'melodic' }).soundTheme, 'melodic')
+  assert.equal(publicConfig({ soundTheme: 'unknown' }).soundTheme, 'blip')
+
+  assert.equal(publicConfig({ comboMode: 'hybrid' }).comboMode, 'hybrid')
+  assert.equal(publicConfig({ comboMode: 'tokens' }).comboMode, 'tokens')
+  assert.equal(publicConfig({ comboMode: 'tools' }).comboMode, 'tools')
+  assert.equal(publicConfig({ comboMode: 'unknown' }).comboMode, 'hybrid')
 })
 
 
 test('the public preset accepts supported effects and falls back for unknown values', () => {
-  for (const preset of ['particles', 'flames', 'fireworks', 'rift']) {
+  for (const preset of ['particles', 'fireworks', 'slash', 'aura', 'glitch']) {
     assert.equal(publicConfig({ preset }).preset, preset)
   }
   assert.equal(publicConfig({ preset: 'unknown' }).preset, 'particles')
@@ -368,3 +401,23 @@ test('thoughts obey idle resets and are independent of tool exclusions', () => {
   assert.equal(state.combo, 1)
   assert.equal(state.lastCallAt, 3000)
 })
+
+test('color themes, sound themes, combo modes, and legacy presets map correctly', () => {
+  for (const theme of ['classic', 'cyberpunk', 'sunset', 'matrix', 'frost']) {
+    assert.equal(publicConfig({ colorTheme: theme }).colorTheme, theme)
+  }
+  assert.equal(publicConfig({ colorTheme: 'invalid' }).colorTheme, 'classic')
+
+  for (const mode of ['hybrid', 'tokens', 'tools']) {
+    assert.equal(publicConfig({ comboMode: mode }).comboMode, mode)
+  }
+  assert.equal(publicConfig({ comboMode: 'invalid' }).comboMode, 'hybrid')
+
+  // Legacy preset mappings:
+  assert.equal(publicConfig({ preset: 'flames' }).preset, 'aura')
+  assert.equal(publicConfig({ preset: 'rift' }).preset, 'slash')
+  assert.equal(publicConfig({ preset: 'electric' }).preset, 'slash')
+  assert.equal(publicConfig({ preset: 'cyber' }).preset, 'glitch')
+  assert.equal(publicConfig({ preset: 'supernova' }).preset, 'fireworks')
+})
+

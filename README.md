@@ -8,9 +8,9 @@ A lightweight DeepSeek Harness (DSH) plugin that displays per-turn thinking and 
 
 ## Features
 
-- Reads the Host's `dshCombo` Session Projection. Tool results and unrelated events do not increment the count.
-- Keeps the counter turn-based by default. Set `expireMs` to opt into an idle timeout.
-- Shows the latest thinking/tool activity, tiered visual feedback, optional sound, and a per-session pin that can carry a streak across turns.
+- Listens to real-time streaming chunks (`assistant/live-chunk`) to compute token-level combos as the model types, delivering immediate visual and audio hits! Also respects Host's `dshCombo` projection and committed tool calls.
+- Keeps the counter turn-based by default. Set `expireMs` to opt into an idle timeout; adjust `tokensPerCombo` to tune tokens needed per combo hit.
+- Shows the latest thinking/tool/output activity, tiered visual feedback, optional sound, and a per-session pin that can carry a streak across turns.
 - Carries its own configuration page on the **Plugins** page, where every setting — sound included — is saved into the profile and applied live.
 - Runs in the DSH Web Client, including the Web UI embedded in DSH Desktop. It does not add content to model requests or contact a third-party service. Pin state is stored in the client page's `localStorage`.
 
@@ -87,6 +87,7 @@ The bundle provides working defaults in `cordis.patch.yml`. To override them by 
     excludeTools: []
     expireMs: 0
     sound: false
+    soundTheme: blip
     soundVolume: 0.35
     soundFrom: 10
     pinPromptMs: 5000
@@ -97,14 +98,16 @@ DSH patch layers replace a row's complete `config` object. Include every setting
 | Setting | Default | Meaning |
 |---|---:|---|
 | `enabled` | `true` | Show the HUD. |
+| `comboMode` | `hybrid` | Combo calculation mode: `hybrid` (stream tokens + tool calls), `tokens` (streaming tokens only), or `tools` (classic: tool calls and settled rounds only). |
 | `showToolName` | `true` | Show the most recent tool below the counter. |
 | `animation` | `normal` | `off`, `normal`, or `strong`; `strong` uses a larger pop. Reduced-motion preferences disable CSS animation. |
 | `particles` | `true` | Emit the selected effect on each combo gain while animation is enabled; particle density grows with the combo tier. |
-| `preset` | `particles` | Default effect: `particles`, `flames`, `fireworks`, or `rift`. |
+| `preset` | `particles` | Default effect: `particles` (particles), `fireworks` (fireworks), `slash` (blade slash), `aura` (energy aura), or `glitch` (cyber glitch). |
 | `position` | `top-right` | `top-right`, `top-left`, `bottom-right`, or `bottom-left`. |
 | `excludeTools` | `[]` | Tool names to ignore, matched without case sensitivity. |
-| `expireMs` | `0` | Optional idle reset in milliseconds; `0` disables it. Maximum: `600000`. |
-| `sound` | `false` | Play a soft synthesized percussive hit; rapid calls within 60 ms coalesce. |
+| `expireMs` | `0` | Optional idle reset in milliseconds; `0` enables infinite mode (never reset on idle). Includes quick presets `[ ∞ Infinite | 5s | 10s | 30s | 60s ]`. Maximum: `600000`. |
+| `sound` | `false` | Play synthesized audio hits; rapid calls within 60 ms coalesce. |
+| `soundTheme` | `blip` | Audio theme: `blip` (soft chime), `keyboard` (mechanical switch thock), `bubble` (satisfying pop), `arcade` (8-bit chiptune), `laser` (sci-fi beam), `melodic` (rising pentatonic scale). |
 | `soundVolume` | `0.35` | Hit volume from `0` to `1`. |
 | `soundFrom` | `10` | First count that plays a hit. Range: `0` to `1000`. |
 | `pinPromptMs` | `5000` | How long a finished run of at least two calls remains available to pin. Maximum: `60000`; `0` disables the prompt. |
@@ -122,7 +125,7 @@ A completed model round counts once even when the provider does not expose reaso
 | 20–49 | Yellow glow, slight shake and denser particles |
 | 50+ | Orange glow, largest multiplier and densest particles |
 
-The unboxed PowerMode-style meter displays a bold multiplier beneath a bright bar. Use the selector below it to switch between particles, flames, fireworks and rift; switching previews the effect without changing the count. Your choice is saved locally and overrides the configured default `preset`. All presets share count-driven colors: green at 1–9, yellow-green at 10–19, yellow at 20–49 and orange at 50+. Presets change the motion, while explicit custom colors override this palette.
+The unboxed PowerMode-style meter displays a bold multiplier beneath a bright bar. Use the selector below it to switch between 5 distinct visual presets (particles, fireworks, slash, aura, and glitch); switching previews the effect without changing the count. Your choice is saved locally and overrides the configured default `preset`. All presets share count-driven colors: green at 1–9, yellow-green at 10–19, yellow at 20–49, orange at 50–99, cosmic violet at 100+, cyber cyan at 200+, inferno crimson at 300+, and hyper prismatic rainbow at 500+. Presets change the motion, while explicit custom colors and color themes override this palette.
 
 The 📌 button keeps the current run as a streak for that Session. When an unpinned turn ends, a run of at least two calls stays dimmed for `pinPromptMs`; pin it during that window to continue counting across turns. Pin state survives a page reload in local storage.
 
@@ -130,11 +133,12 @@ The 📌 button keeps the current run as a streak for that Session. When an unpi
 
 Use the gear beside the meter to edit appearance, timing and effects immediately. Preferences are saved locally; Reset clears local overrides and restores the configured defaults.
 
-The countdown alone does not reset the per-turn count. For PowerMode-style idle resets, set `expireMs` in the profile configuration. Unpinned runs then use the same duration for the countdown. Pinned streaks remain preserved across turns.
+The countdown bar visually shows the remaining active combo window. When `expireMs` is configured, the countdown bar drains over that window and resets the combo upon expiry; when set to `0` (or the ∞ Infinite preset), it runs in infinite mode without idle timeout. Pinned streaks remain preserved across turns.
 
 | Option | Default | Range | Description |
 |---|---|---|---|
-| `timerMs` | `10000` | 1000–60000 ms | Countdown duration; refills on each thought or tool call. Unpinned idle-reset runs use `expireMs` instead. |
+| `expireMs` | `0` | 0–600000 ms | Idle reset time; `0` indicates infinite mode (never expires on idle). Quick preset buttons available. |
+| `timerMs` | `10000` | 1000–60000 ms | Base countdown bar duration; overridden by `expireMs` when idle reset is active. |
 | `powerThreshold` | `0` | 0–1000 | Combo needed to activate feedback and effects. |
 | `effectFrequency` | `1` | 1–20 | Combo gains per burst; batches crossing a trigger boundary also emit. |
 | `shake` | `true` | boolean | Independent combo-shake switch. |

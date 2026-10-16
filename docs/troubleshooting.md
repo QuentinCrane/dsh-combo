@@ -12,7 +12,7 @@
 
 The Host row must be enabled in the same profile and must be able to inject `sessionProjections`. The Client reads the current Session identity from `uiSession.adapter.current`, then subscribes to the Session face at `sessions.binding(id).session.projections.faceOf('dshCombo')`. Avoid substituting undocumented `uiSession.current` or `sessions.projectionStore()` APIs; neither is part of the current public Client contract.
 
-Each completed `assistant/message` round and `tool/call` counts once. Stream chunks, failed attempts, interrupted output, history replacements, `tool/result` and turn boundaries do not increment the counter. Check `excludeTools` and `expireMs` if a count starts at one or disappears sooner than expected.
+In hybrid mode (default) and tokens mode, live assistant stream chunks (`assistant/live-chunk`) increment the counter in real time; in classic tools mode, only completed model rounds and committed `tool/call` events increment it. `tool/result`, failed attempts, interrupted output, history replacements and turn boundaries do not increment the counter. Check `excludeTools`, `comboMode`, and `expireMs` if a count starts at one or disappears sooner than expected.
 
 ## The tool label is missing
 

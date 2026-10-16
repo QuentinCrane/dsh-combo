@@ -1,7 +1,7 @@
 {
   "name": "dsh-combo",
-  "version": "0.5.0",
-  "description": "PowerMode-style thinking and tool-call combo feedback for DeepSeek Harness Web and Desktop, with count-driven colors and soft percussive audio.",
+  "version": "0.6.0",
+  "description": "PowerMode-style real-time streaming token and tool-call combo feedback for DeepSeek Harness, featuring 5 distinct presets, 6 synthesized audio themes, and a live HUD simulator.",
   "type": "module",
   "main": "./index.js",
   "repository": {

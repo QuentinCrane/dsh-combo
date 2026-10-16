@@ -32,13 +32,26 @@ import z from '@deepseek-ai/schemastery'
 const PLUGIN_ID = 'dsh-combo'
 const PROJECTION_KEY = 'dshCombo'
 const CONFIG_ROUTE = '/dsh-combo/config'
-const CONFIG_REVISION = 5
+const CONFIG_REVISION = 6
 
 /** Positions accepted by both halves; the Client maps them onto CSS edges. */
 const POSITIONS = ['top-right', 'top-left', 'bottom-right', 'bottom-left']
 /** Animation intensities; `off` keeps the counter but drops every motion. */
 const ANIMATIONS = ['off', 'normal', 'strong']
-const PRESETS = ['particles', 'flames', 'fireworks', 'rift']
+const PRESETS = ['particles', 'fireworks', 'slash', 'aura', 'glitch']
+const LEGACY_PRESETS = {
+  flames: 'aura',
+  rift: 'slash',
+  electric: 'slash',
+  supernova: 'fireworks',
+  aurora: 'aura',
+  cyber: 'glitch',
+  ripple: 'fireworks',
+  comic: 'slash',
+}
+const COLOR_THEMES = ['classic', 'cyberpunk', 'sunset', 'matrix', 'frost']
+const SOUND_THEMES = ['blip', 'keyboard', 'bubble', 'arcade', 'laser', 'melodic']
+const COMBO_MODES = ['hybrid', 'tokens', 'tools']
 
 /** Upper bounds for the numeric knobs, so a typo cannot schedule a day-long timer. */
 const MAX_EXPIRE_MS = 600000
@@ -51,10 +64,13 @@ const MAX_SOUND_FROM = 1000
  */
 export const CONFIG_DEFAULTS = {
   enabled: true,
+  comboMode: 'hybrid',
+  tokensPerCombo: 1,
   showToolName: true,
   animation: 'normal',
   particles: true,
   preset: 'particles',
+  colorTheme: 'classic',
   timerMs: 10000,
   powerThreshold: 0,
   effectFrequency: 1,
@@ -77,6 +93,7 @@ export const CONFIG_DEFAULTS = {
   excludeTools: [],
   expireMs: 0,
   sound: false,
+  soundTheme: 'blip',
   soundVolume: 0.35,
   soundFrom: 10,
   pinPromptMs: 5000,
@@ -100,10 +117,13 @@ export const CONFIG_DEFAULTS = {
  */
 export const Config = z.object({
   enabled: z.any().default(CONFIG_DEFAULTS.enabled).volatile(),
+  comboMode: z.any().default(CONFIG_DEFAULTS.comboMode).volatile(),
+  tokensPerCombo: z.any().default(CONFIG_DEFAULTS.tokensPerCombo).volatile(),
   showToolName: z.any().default(CONFIG_DEFAULTS.showToolName).volatile(),
   animation: z.any().default(CONFIG_DEFAULTS.animation).volatile(),
   particles: z.any().default(CONFIG_DEFAULTS.particles).volatile(),
   preset: z.any().default(CONFIG_DEFAULTS.preset).volatile(),
+  colorTheme: z.any().default(CONFIG_DEFAULTS.colorTheme).volatile(),
   timerMs: z.any().default(CONFIG_DEFAULTS.timerMs).volatile(),
   powerThreshold: z.any().default(CONFIG_DEFAULTS.powerThreshold).volatile(),
   effectFrequency: z.any().default(CONFIG_DEFAULTS.effectFrequency).volatile(),
@@ -126,6 +146,7 @@ export const Config = z.object({
   excludeTools: z.any().default(CONFIG_DEFAULTS.excludeTools).volatile(),
   expireMs: z.any().default(CONFIG_DEFAULTS.expireMs).volatile(),
   sound: z.any().default(CONFIG_DEFAULTS.sound).volatile(),
+  soundTheme: z.any().default(CONFIG_DEFAULTS.soundTheme).volatile(),
   soundVolume: z.any().default(CONFIG_DEFAULTS.soundVolume).volatile(),
   soundFrom: z.any().default(CONFIG_DEFAULTS.soundFrom).volatile(),
   pinPromptMs: z.any().default(CONFIG_DEFAULTS.pinPromptMs).volatile(),
@@ -185,10 +206,13 @@ export function publicConfig(cfg) {
   }
   return {
     enabled: raw.enabled !== false,
+    comboMode: COMBO_MODES.includes(raw.comboMode) ? raw.comboMode : CONFIG_DEFAULTS.comboMode,
+    tokensPerCombo: Math.round(clampNumber(raw.tokensPerCombo, CONFIG_DEFAULTS.tokensPerCombo, 1, 100)),
     showToolName: raw.showToolName !== false,
     animation: ANIMATIONS.includes(raw.animation) ? raw.animation : CONFIG_DEFAULTS.animation,
     particles: raw.particles !== false,
-    preset: PRESETS.includes(raw.preset) ? raw.preset : CONFIG_DEFAULTS.preset,
+    preset: PRESETS.includes(raw.preset) ? raw.preset : (LEGACY_PRESETS[raw.preset] ?? CONFIG_DEFAULTS.preset),
+    colorTheme: COLOR_THEMES.includes(raw.colorTheme) ? raw.colorTheme : CONFIG_DEFAULTS.colorTheme,
     powerThreshold: Math.round(clampNumber(raw.powerThreshold, CONFIG_DEFAULTS.powerThreshold, 0, 1000)),
     effectFrequency: Math.round(clampNumber(raw.effectFrequency, CONFIG_DEFAULTS.effectFrequency, 1, 20)),
     shake: raw.shake !== false,
@@ -212,6 +236,7 @@ export function publicConfig(cfg) {
     // 0 disables the idle break, which keeps the default semantics turn-based.
     expireMs: clampNumber(raw.expireMs, CONFIG_DEFAULTS.expireMs, 0, MAX_EXPIRE_MS),
     sound: raw.sound === true,
+    soundTheme: SOUND_THEMES.includes(raw.soundTheme) ? raw.soundTheme : CONFIG_DEFAULTS.soundTheme,
     soundVolume: clampNumber(raw.soundVolume, CONFIG_DEFAULTS.soundVolume, 0, 1),
     soundFrom: clampNumber(raw.soundFrom, CONFIG_DEFAULTS.soundFrom, 0, MAX_SOUND_FROM),
     pinPromptMs: clampNumber(raw.pinPromptMs, CONFIG_DEFAULTS.pinPromptMs, 0, MAX_PIN_PROMPT_MS),
@@ -280,6 +305,26 @@ export function toComboView(state) {
 }
 
 /**
+ * State schema validator for persistent checkpointing / restore.
+ * Complies with ProjectionDefinition requirements.
+ */
+export const ComboStateSchema = {
+  parse(value) {
+    const raw = value !== null && typeof value === 'object' ? value : {}
+    const combo = Number(raw.combo)
+    const lastCallAt = Number(raw.lastCallAt)
+    const updatedAt = Number(raw.updatedAt)
+    return {
+      combo: Number.isFinite(combo) ? combo : 0,
+      tool: typeof raw.tool === 'string' ? raw.tool : '',
+      lastThought: typeof raw.lastThought === 'string' ? raw.lastThought : null,
+      lastCallAt: Number.isFinite(lastCallAt) ? lastCallAt : 0,
+      updatedAt: Number.isFinite(updatedAt) ? updatedAt : 0,
+    }
+  },
+}
+
+/**
  * The wire view's validator.
  *
  * The projection carrier calls `viewSchema.parse()` on every published value,
@@ -330,6 +375,7 @@ export function apply(ctx, config) {
   ctx.sessionProjections.register({
     key: PROJECTION_KEY,
     stateVersion: 3,
+    stateSchema: ComboStateSchema,
     init: () => ({ combo: 0, tool: '', lastThought: null, lastCallAt: 0, updatedAt: 0 }),
     apply: (state, event) => {
       const cfg = live()

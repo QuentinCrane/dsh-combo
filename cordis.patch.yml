@@ -11,12 +11,18 @@
       name: 'dsh-combo'
       config:
         enabled: true
+        # hybrid | tokens | tools
+        comboMode: hybrid
+        # streaming tokens needed to earn +1 combo (default 1)
+        tokensPerCombo: 1
         showToolName: true
         # off | normal | strong
         animation: normal
         particles: true
-        # particles | flames | fireworks | rift
+        # particles | fireworks | slash | aura | glitch
         preset: particles
+        # classic | cyberpunk | sunset | matrix | frost
+        colorTheme: classic
         # Countdown refills on thoughts and tool calls; idle reset still uses expireMs.
         timerMs: 10000
         powerThreshold: 0
@@ -44,6 +50,8 @@
         expireMs: 0
         # sound is opt-in: a long turn would otherwise be a long run of sounds
         sound: false
+        # blip | keyboard | bubble | arcade | laser | melodic
+        soundTheme: blip
         # 0 – 1
         soundVolume: 0.35
         # the combo at which soft hits start

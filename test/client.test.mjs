@@ -67,6 +67,8 @@ function fakeStorage() {
 function fakeAudio(state = 'running') {
   const played = []
   const contexts = []
+  let disconnectedOscs = 0
+  let disconnectedGains = 0
   class FakeOscillator {
     constructor() {
       this.type = 'sine'
@@ -75,14 +77,19 @@ function fakeAudio(state = 'running') {
     }
     connect() {}
     start() { played.push({ type: this.type, hz: this.hz, endHz: this.endHz }) }
-    stop() {}
-    disconnect() {}
+    stop() {
+      if (typeof this.onended === 'function') {
+        this.onended()
+      }
+    }
+    disconnect() { disconnectedOscs += 1 }
   }
   class FakeGain {
     constructor() {
       this.gain = { setValueAtTime() {}, exponentialRampToValueAtTime() {} }
     }
     connect() {}
+    disconnect() { disconnectedGains += 1 }
   }
   class FakeAudioContext {
     constructor() {
@@ -95,7 +102,14 @@ function fakeAudio(state = 'running') {
     createGain() { return new FakeGain() }
     resume() {}
   }
-  return { played, contexts, advance: () => { for (const context of contexts) context.currentTime += .1 }, Ctor: FakeAudioContext }
+  return {
+    played,
+    contexts,
+    get disconnectedOscs() { return disconnectedOscs },
+    get disconnectedGains() { return disconnectedGains },
+    advance: () => { for (const context of contexts) context.currentTime += .1 },
+    Ctor: FakeAudioContext,
+  }
 }
 
 /**
@@ -177,9 +191,28 @@ function mountCombo(options = {}) {
     },
   }
 
+  const eventSources = new Map()
+  const eventSourceOf = (sessionId) => {
+    if (options.eventSource) return options.eventSource
+    if (!eventSources.has(sessionId)) {
+      const listeners = new Set()
+      let snapshot = { hasMore: false, revision: 0, change: { kind: 'replace', entries: [] } }
+      eventSources.set(sessionId, {
+        subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn) },
+        getSnapshot() { return snapshot },
+        append(entry) {
+          snapshot = { hasMore: false, revision: snapshot.revision + 1, change: { kind: 'append', entries: [entry] } }
+          for (const fn of listeners) fn()
+        },
+      })
+    }
+    return eventSources.get(sessionId)
+  }
+
   const sessions = {
     binding: (sessionId) => ({
       session: { projections: { faceOf: () => faceOf(sessionId) } },
+      eventSource: eventSourceOf(sessionId),
     }),
   }
 
@@ -242,7 +275,7 @@ function mountCombo(options = {}) {
     globalThis.window = previousWindow
   }
 
-  return { mounted, comboFace, current, faceOf, module, settingsPage, storage: options.storage }
+  return { mounted, comboFace, current, faceOf, module, settingsPage, storage: options.storage, eventSource: eventSourceOf(initialSessionId) }
 }
 
 /** Text directly inside nodes (not the whole subtree). */
@@ -644,6 +677,31 @@ test('sound uses soft downward hits with bounded musical tier pitches', async ()
   }
 })
 
+test('sound themes synthesize distinct waveforms and pitch profiles', async () => {
+  const audio = fakeAudio()
+  const previous = globalThis.AudioContext
+  globalThis.AudioContext = audio.Ctor
+  try {
+    for (const theme of ['keyboard', 'bubble', 'arcade', 'laser', 'melodic']) {
+      audio.played.length = 0
+      const prevOscs = audio.disconnectedOscs
+      const prevGains = audio.disconnectedGains
+      const { mounted, comboFace } = mountCombo({
+        config: { sound: true, soundFrom: 1, soundVolume: 0.5, soundTheme: theme },
+        combo: { combo: 0, tool: '' },
+      })
+      await settle()
+      comboFace.set({ combo: 1, tool: 'bash' })
+      mounted.update()
+      assert.ok(audio.played.length > 0, `theme ${theme} plays audio`)
+      assert.ok(audio.disconnectedOscs > prevOscs, `theme ${theme} disconnects oscillators on finish`)
+      assert.ok(audio.disconnectedGains > prevGains, `theme ${theme} disconnects gain nodes on finish`)
+    }
+  } finally {
+    globalThis.AudioContext = previous
+  }
+})
+
 test('soundFrom: 0 beeps from the very first call, and volume 0 is silence', async () => {
   const audio = fakeAudio()
   const previous = globalThis.AudioContext
@@ -749,6 +807,14 @@ test('the configuration page writes through the Host form and drops the local ov
     'the write is revision-fenced and shaped as the Host expects')
   const notice = page.all().filter(node => node.attributes?.['data-dsh-combo-notice'] !== undefined)[0]
   assert.equal(notice.attributes['data-dsh-combo-notice'], 'ok')
+
+  const previewBtn = setting('previewHud')
+  assert.ok(previewBtn, 'settings page offers previewHud button')
+  previewBtn.props.onClick()
+  await settle()
+  fixture.mounted.update()
+  assert.ok(badge(fixture.mounted), 'previewHud activates HUD combo')
+
   const stored = JSON.parse(storage.getItem('dsh-combo:appearance'))
   assert.equal(Object.hasOwn(stored, 'sound'), false, 'a saved key leaves the per-browser quick tune')
   assert.equal(stored.scale, 1.5, 'other quick-tune keys stay')
@@ -782,6 +848,40 @@ test('the configuration page splits the excluded-tool list into an array', async
     path: ['excludeTools'],
     value: ['todo_write', 'bash', 'edit'],
   }])
+})
+
+test('the configuration page and HUD panel settings are unified and never initially blank', async () => {
+  const form = fakeForm({ value: { enabled: true, sound: false, soundTheme: 'blip', comboMode: 'hybrid' } })
+  const fixture = mountCombo({ form, combo: { combo: 2, tool: 'read' } })
+  await settle()
+  const page = React.mount(React.createElement(fixture.settingsPage, { form }))
+
+  // Check initial active tab is 'basic' on configuration page and not blank
+  const activeNav = page.all().filter(node => node.type === 'button' && node.props?.className?.includes('dsh-combo-nav-item active'))
+  assert.equal(activeNav.length, 1)
+  assert.ok(activeNav[0].children.some(c => c.children?.some(cc => cc.value === '基础设置') || c.value === '基础设置'), 'configuration page initially activates 基础设置')
+
+  // Check HUD appearance panel has matching tab buttons
+  const hudTabs = findAll(fixture.mounted, node => node.type === 'button' && node.props?.className?.includes('dsh-combo-tab-btn'))
+  assert.ok(hudTabs.length >= 7, 'HUD settings panel carries the unified tabs')
+  const activeHudTab = hudTabs.filter(node => node.props?.className?.includes('active'))[0]
+  assert.ok(activeHudTab, 'HUD panel has active tab')
+
+  // Switching tab to 'sound' on config page
+  const soundNavBtn = page.all().filter(node => node.type === 'button' && node.children?.some(c => c.children?.some(cc => cc.value === '音效设置') || c.value === '音效设置'))[0]
+  assert.ok(soundNavBtn, 'found sound tab button')
+  soundNavBtn.props.onClick()
+  page.update()
+  const soundActive = page.all().filter(node => node.type === 'button' && node.props?.className?.includes('active'))[0]
+  assert.ok(soundActive, 'sound tab became active')
+
+  // Check view: 'summary' renders lightweight summary row without error
+  const summaryPage = React.mount(React.createElement(fixture.settingsPage, { form, view: 'summary' }))
+  assert.ok(summaryPage.all().some(node => ownText(node)?.includes('dsh-combo')), 'summary view renders plugin summary line')
+
+  // Check mini simulator exists on full page
+  const simulator = page.all().filter(node => node.props?.className === 'dsh-combo-simulator')[0]
+  assert.ok(simulator, 'configuration page embeds the live HUD mini simulator')
 })
 
 test('config controls placement, the tool name and particles', async () => {
@@ -851,21 +951,21 @@ test('presets switch immediately, preserve the score and survive a reload', asyn
   const { mounted, comboFace } = mountCombo({ storage, combo: { combo: 7, tool: 'read' } })
   await settle()
   const selector = () => findAll(mounted, node => node.attributes?.['data-dsh-combo-preset-select'] !== undefined)[0]
-  for (const preset of ['flames', 'fireworks', 'rift', 'particles']) {
+  for (const preset of ['particles', 'fireworks', 'slash', 'aura', 'glitch']) {
     selector().props.onChange({ target: { value: preset } })
     mounted.update()
     assert.equal(hud(mounted).attributes['data-dsh-combo-preset'], preset)
     assert.equal(hud(mounted).attributes['data-dsh-combo-score'], '7')
     assert.equal(burst(mounted)[0].attributes['data-dsh-combo-effect'], preset)
   }
-  selector().props.onChange({ target: { value: 'rift' } })
+  selector().props.onChange({ target: { value: 'slash' } })
   mounted.update()
   comboFace.set({ combo: 8, tool: 'bash' })
   mounted.update()
-  assert.equal(burst(mounted)[0].attributes['data-dsh-combo-effect'], 'rift')
+  assert.equal(burst(mounted)[0].attributes['data-dsh-combo-effect'], 'slash')
   const reload = mountCombo({ storage, combo: { combo: 8, tool: 'bash' } })
   await settle()
-  assert.equal(hud(reload.mounted).attributes['data-dsh-combo-preset'], 'rift')
+  assert.equal(hud(reload.mounted).attributes['data-dsh-combo-preset'], 'slash')
 })
 
 test('config selects the default preset and ignores corrupt saved preferences', async () => {
@@ -956,7 +1056,7 @@ test('restoring an old conversation uses its original countdown timestamp', asyn
 
 
 test('all presets color the number, bar and particles by combo count', async () => {
-  for (const preset of ['particles', 'flames', 'fireworks', 'rift']) {
+  for (const preset of ['particles', 'fireworks', 'slash', 'aura', 'glitch']) {
     const { mounted, comboFace } = mountCombo({ config: { preset }, combo: { combo: 8, tool: 'read' } })
     await settle()
     const colors = []
@@ -1001,3 +1101,359 @@ test('locked audio never queues automatic hits for later playback', async () => 
     assert.equal(audio.played.length, 1, 'only the new hit plays after unlocking')
   } finally { globalThis.AudioContext = previous }
 })
+
+test('streaming assistant chunks increment combo in real time and show "输出"', async () => {
+  const { mounted, eventSource } = mountCombo()
+  await settle()
+  assert.equal(hud(mounted), undefined, 'starts idle')
+
+  eventSource.append({
+    type: 'transient',
+    event: {
+      type: 'assistant/live-chunk',
+      time: 1000,
+      data: {
+        turn: 1, step: 1,
+        chunk: { type: 'text-delta', text: 'Hello' },
+      },
+    },
+  })
+  mounted.update()
+
+  assert.ok(hud(mounted), 'HUD appears on stream chunk')
+  assert.equal(nestedText(badge(mounted)), '1×')
+  assert.equal(ownText(toolLabel(mounted)), '输出')
+
+  eventSource.append({
+    type: 'transient',
+    event: {
+      type: 'assistant/live-chunk',
+      time: 1050,
+      data: {
+        turn: 1, step: 1,
+        chunk: { type: 'text-delta', text: ' world from DSH' },
+      },
+    },
+  })
+  mounted.update()
+
+  assert.equal(nestedText(badge(mounted)), '4×')
+})
+
+test('streaming reasoning chunks increment combo and label with "思考"', async () => {
+  const { mounted, eventSource } = mountCombo()
+  await settle()
+
+  eventSource.append({
+    type: 'transient',
+    event: {
+      type: 'assistant/live-chunk',
+      time: 2000,
+      data: {
+        turn: 1, step: 1,
+        chunk: { type: 'reasoning-delta', text: '让我先思考一下这个问题' },
+      },
+    },
+  })
+  mounted.update()
+
+  assert.ok(hud(mounted))
+  assert.equal(nestedText(badge(mounted)), '11×')
+  assert.equal(ownText(toolLabel(mounted)), '思考')
+})
+
+test('streaming tool-call-delta shows tool name and counts argument tokens', async () => {
+  const { mounted, eventSource } = mountCombo()
+  await settle()
+
+  eventSource.append({
+    type: 'transient',
+    event: {
+      type: 'assistant/live-chunk',
+      time: 3000,
+      data: {
+        turn: 1, step: 1,
+        chunk: { type: 'tool-call-delta', name: 'bash', argumentsDelta: 'npm test' },
+      },
+    },
+  })
+  mounted.update()
+
+  assert.ok(hud(mounted))
+  assert.equal(ownText(toolLabel(mounted)), 'bash')
+  assert.equal(nestedText(badge(mounted)), '2×')
+})
+
+test('tool/call event in eventSource adds combo and shows tool name', async () => {
+  const { mounted, eventSource } = mountCombo()
+  await settle()
+
+  eventSource.append({
+    type: 'durable',
+    event: {
+      type: 'tool/call',
+      time: 4000,
+      data: { name: 'grep' },
+    },
+  })
+  mounted.update()
+
+  assert.ok(hud(mounted))
+  assert.equal(ownText(toolLabel(mounted)), 'grep')
+  assert.equal(nestedText(badge(mounted)), '1×')
+})
+
+test('turn/start resets stream combo for the fresh turn', async () => {
+  const { mounted, eventSource } = mountCombo()
+  await settle()
+
+  eventSource.append({
+    type: 'transient',
+    event: {
+      type: 'assistant/live-chunk',
+      time: 5000,
+      data: {
+        turn: 1, step: 1,
+        chunk: { type: 'text-delta', text: 'Done' },
+      },
+    },
+  })
+  mounted.update()
+  assert.equal(nestedText(badge(mounted)), '1×')
+
+  eventSource.append({
+    type: 'durable',
+    event: {
+      type: 'turn/start',
+      time: 5100,
+      data: {},
+    },
+  })
+  mounted.update()
+  assert.equal(hud(mounted), undefined, 'fresh turn resets to 0 and hides HUD')
+})
+
+test('tokensPerCombo config ratio batches tokens', async () => {
+  const { mounted, eventSource } = mountCombo({ config: { tokensPerCombo: 5 } })
+  await settle()
+
+  eventSource.append({
+    type: 'transient',
+    event: {
+      type: 'assistant/live-chunk',
+      time: 6000,
+      data: {
+        turn: 1, step: 1,
+        chunk: { type: 'text-delta', text: 'one two three' },
+      },
+    },
+  })
+  mounted.update()
+  assert.equal(hud(mounted), undefined, '3 tokens < 5 tokensPerCombo yields 0 combo')
+
+  eventSource.append({
+    type: 'transient',
+    event: {
+      type: 'assistant/live-chunk',
+      time: 6050,
+      data: {
+        turn: 1, step: 1,
+        chunk: { type: 'text-delta', text: 'four five six seven eight nine ten' },
+      },
+    },
+  })
+  mounted.update()
+  assert.ok(hud(mounted))
+  assert.equal(nestedText(badge(mounted)), '2×')
+})
+
+test('comboMode: "tools" ignores streaming chunks and only counts tool calls', async () => {
+  const { mounted, eventSource } = mountCombo({ config: { comboMode: 'tools' } })
+  await settle()
+
+  eventSource.append({
+    type: 'transient',
+    event: {
+      type: 'assistant/live-chunk',
+      time: 7000,
+      data: {
+        turn: 1, step: 1,
+        chunk: { type: 'text-delta', text: 'Hello streaming token world' },
+      },
+    },
+  })
+  mounted.update()
+  assert.equal(hud(mounted), undefined, 'tools mode ignores live streaming tokens')
+
+  eventSource.append({
+    type: 'durable',
+    event: {
+      type: 'tool/call',
+      time: 7100,
+      data: { name: 'bash' },
+    },
+  })
+  mounted.update()
+  assert.ok(hud(mounted), 'tool calls still increment in tools mode')
+  assert.equal(nestedText(badge(mounted)), '1×')
+  assert.equal(ownText(toolLabel(mounted)), 'bash')
+})
+
+test('comboMode: "tokens" counts stream chunks but ignores tool/call events', async () => {
+  const { mounted, eventSource } = mountCombo({ config: { comboMode: 'tokens' } })
+  await settle()
+
+  eventSource.append({
+    type: 'durable',
+    event: {
+      type: 'tool/call',
+      time: 8000,
+      data: { name: 'edit' },
+    },
+  })
+  mounted.update()
+  assert.equal(hud(mounted), undefined, 'tokens mode ignores tool/call events')
+
+  eventSource.append({
+    type: 'transient',
+    event: {
+      type: 'assistant/live-chunk',
+      time: 8100,
+      data: {
+        turn: 1, step: 1,
+        chunk: { type: 'text-delta', text: 'token hit' },
+      },
+    },
+  })
+  mounted.update()
+  assert.ok(hud(mounted), 'stream tokens increment in tokens mode')
+  assert.equal(nestedText(badge(mounted)), '2×')
+})
+
+test('presets slash, aura, and glitch render distinctive structural burst elements', async () => {
+  // 1. Slash preset renders laser beam and cross flash
+  const slashFixture = mountCombo({ config: { preset: 'slash' }, combo: { combo: 0, tool: '' } })
+  await settle()
+  slashFixture.comboFace.set({ combo: 1, tool: 'bash' })
+  slashFixture.mounted.update()
+  const slashBurst = burst(slashFixture.mounted)[0]
+  assert.ok(slashBurst, 'slash burst rendered')
+  assert.equal(slashBurst.attributes['data-dsh-combo-effect'], 'slash')
+  const slashBeam = findAll(slashFixture.mounted, c => c.style?.animation?.includes('dshcombo-slash-beam'))[0]
+  assert.ok(slashBeam, 'slash preset renders blade beam')
+  const slashFlash = findAll(slashFixture.mounted, c => c.style?.animation?.includes('dshcombo-cross-flash'))[0]
+  assert.ok(slashFlash, 'slash preset renders cross flash')
+
+  // 2. Aura preset renders plasma aura pulse
+  const auraFixture = mountCombo({ config: { preset: 'aura' }, combo: { combo: 0, tool: '' } })
+  await settle()
+  auraFixture.comboFace.set({ combo: 1, tool: 'bash' })
+  auraFixture.mounted.update()
+  const auraBurst = burst(auraFixture.mounted)[0]
+  assert.ok(auraBurst, 'aura burst rendered')
+  assert.equal(auraBurst.attributes['data-dsh-combo-effect'], 'aura')
+  const auraPulse = findAll(auraFixture.mounted, c => c.style?.animation?.includes('dshcombo-aura-pulse'))[0]
+  assert.ok(auraPulse, 'aura preset renders billowing aura pulse')
+
+  // 3. Glitch preset renders chromatic slice tear lines
+  const glitchFixture = mountCombo({ config: { preset: 'glitch' }, combo: { combo: 0, tool: '' } })
+  await settle()
+  glitchFixture.comboFace.set({ combo: 1, tool: 'bash' })
+  glitchFixture.mounted.update()
+  const glitchBurst = burst(glitchFixture.mounted)[0]
+  assert.ok(glitchBurst, 'glitch burst rendered')
+  assert.equal(glitchBurst.attributes['data-dsh-combo-effect'], 'glitch')
+  const glitchSlices = findAll(glitchFixture.mounted, c => c.style?.animation?.includes('dshcombo-glitch-slice'))
+  assert.equal(glitchSlices.length, 2, 'glitch preset renders dual chromatic slices')
+})
+
+test('color themes dynamically alter badge and progress bar palette', async () => {
+  for (const [theme, expectedColorAt10] of [
+    ['cyberpunk', '#38bdf8'],
+    ['sunset', '#f59e0b'],
+    ['matrix', '#22c55e'],
+    ['frost', '#38bdf8'],
+  ]) {
+    const { mounted, comboFace } = mountCombo({ config: { colorTheme: theme }, combo: { combo: 10, tool: '思考' } })
+    await settle()
+    assert.equal(badge(mounted).style.color, expectedColorAt10, `theme ${theme} colors badge`)
+    const bar = findAll(mounted, node => node.attributes?.['data-dsh-combo-bar'] !== undefined)[0]
+    assert.equal(bar.style.background, expectedColorAt10, `theme ${theme} colors countdown bar`)
+  }
+})
+
+test('expireMs provides explicit infinite option, formatted labels, and quick presets', async () => {
+  const form = fakeForm({ value: { expireMs: 0 } })
+  const fixture = mountCombo({ form, combo: { combo: 10, tool: 'read' } })
+  await settle()
+
+  // 1. Full configuration page displays "无限 (永不清零)" when expireMs is 0
+  const page = React.mount(React.createElement(fixture.settingsPage, { form }))
+  const expireSetting = page.all().filter(node => node.attributes?.['data-dsh-combo-setting'] === 'expireMs')[0]
+  assert.ok(expireSetting, 'expireMs slider exists on settings page')
+  assert.equal(expireSetting.props.value, 0)
+  assert.ok(page.all().some(node => ownText(node)?.includes('无限 (永不清零)')), 'full page displays "无限 (永不清零)"')
+
+  // 2. Preset buttons exist on page
+  const preset10s = page.all().filter(node => node.type === 'button' && ownText(node) === '10 秒')[0]
+  assert.ok(preset10s, '10s preset button exists on config page')
+  preset10s.props.onClick({ preventDefault: () => {}, stopPropagation: () => {} })
+  await settle()
+  assert.deepEqual(form.writes.at(-1).ops, [{ op: 'set', path: ['expireMs'], value: 10000 }], 'clicking 10s sets expireMs to 10000')
+
+  // 3. Quick tune popup allows saving expireMs and displays "无限"
+  const storage = fakeStorage()
+  const hudFixture = mountCombo({ storage, config: { expireMs: 0 }, combo: { combo: 8, tool: 'read' } })
+  await settle()
+  const hudExpire = findAll(hudFixture.mounted, node => node.attributes?.['data-dsh-combo-setting'] === 'expireMs')[0]
+  assert.ok(hudExpire, 'expireMs slider exists in quick tune')
+  assert.ok(findAll(hudFixture.mounted, node => ownText(node) === '无限').length > 0, 'quick tune displays "无限"')
+
+  // Clicking 5s preset in quick tune
+  const quick5s = findAll(hudFixture.mounted, node => node.type === 'button' && ownText(node) === '5s')[0]
+  assert.ok(quick5s, '5s preset exists in quick tune')
+  quick5s.props.onClick({ preventDefault: () => {}, stopPropagation: () => {} })
+  hudFixture.mounted.update()
+  const savedAppearance = JSON.parse(storage.getItem('dsh-combo:appearance'))
+  assert.equal(savedAppearance.expireMs, 5000, 'quick tune saves expireMs into local storage')
+
+  // 4. Countdown bar tooltip reflects infinite vs timed countdown
+  const barInfinite = findAll(fixture.mounted, node => node.attributes?.['data-dsh-combo-bar'] !== undefined)[0]
+  assert.ok(barInfinite.props.title.includes('无限模式'), 'tooltip states infinite mode when expireMs is 0')
+
+  const timedFixture = mountCombo({ config: { expireMs: 15000 }, combo: { combo: 5, tool: 'read' } })
+  await settle()
+  const barTimed = findAll(timedFixture.mounted, node => node.attributes?.['data-dsh-combo-bar'] !== undefined)[0]
+  assert.ok(barTimed.props.title.includes('15 秒'), 'tooltip states active countdown duration when expireMs > 0')
+})
+
+test('switching sound theme preserves active combo count', async () => {
+  const storage = fakeStorage()
+  const fixture = mountCombo({ storage, combo: { combo: 15, tool: '思考' } })
+  await settle()
+
+  assert.equal(hud(fixture.mounted).attributes['data-dsh-combo-score'], '15', 'initial combo is 15')
+
+  // Switch sound theme via quick tune
+  const soundThemeSelector = findAll(fixture.mounted, node => node.attributes?.['data-dsh-combo-setting'] === 'soundTheme')[0]
+  if (soundThemeSelector) {
+    soundThemeSelector.props.onChange({ target: { value: 'keyboard' } })
+    fixture.mounted.update()
+  } else {
+    // Or via sound card click
+    const keyboardCard = findAll(fixture.mounted, node => ownText(node)?.includes('机械轴音'))[0]
+    if (keyboardCard) {
+      keyboardCard.props.onClick()
+      fixture.mounted.update()
+    }
+  }
+
+  assert.equal(hud(fixture.mounted).attributes['data-dsh-combo-score'], '15', 'combo remains 15 after switching sound theme')
+
+  // Next tool call increments from 15 to 16 without resetting
+  fixture.comboFace.set({ combo: 16, tool: 'bash' })
+  fixture.mounted.update()
+  assert.equal(hud(fixture.mounted).attributes['data-dsh-combo-score'], '16', 'subsequent call continues accumulated combo')
+})
+
+
