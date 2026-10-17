@@ -1931,7 +1931,7 @@ window.__ModuleLoader__.load({
                   padding: '2px 5px',
                   borderRadius: '5px',
                   border: '1px solid var(--dsw-alias-border-l1, rgba(125,125,125,0.2))',
-                  background: 'var(--dsw-alias-bg-module-platform, var(--dsw-alias-bg-layer-1, #f8fafc))',
+                  background: 'var(--dsw-alias-bg-module-platform, var(--dsw-alias-bg-layer-2, rgba(125, 125, 125, 0.08)))',
                 },
               },
                 h('span', {
@@ -2083,7 +2083,7 @@ window.__ModuleLoader__.load({
                   fontWeight: 500,
                   borderRadius: '6px',
                   border: '1px solid var(--dsw-alias-border-l1, rgba(125, 125, 125, 0.2))',
-                  background: 'var(--dsw-alias-bg-module-platform, var(--dsw-alias-bg-layer-1, #f8fafc))',
+                  background: 'var(--dsw-alias-bg-module-platform, var(--dsw-alias-bg-layer-2, rgba(125, 125, 125, 0.08)))',
                   color: textPrimary,
                   cursor: 'pointer',
                 },
@@ -2121,7 +2121,7 @@ window.__ModuleLoader__.load({
               fontWeight: 500,
               borderRadius: '8px',
               border: `1px solid ${itemBorder}`,
-              background: 'var(--dsh-c-input-bg, var(--dsw-alias-bg-base, #ffffff))',
+              background: 'var(--dsh-c-input-bg, var(--dsw-alias-bg-base, var(--dsw-alias-bg-layer-2, rgba(125, 125, 125, 0.08))))',
               color: textPrimary,
               cursor: 'pointer',
               outline: 'none',
@@ -2147,7 +2147,7 @@ window.__ModuleLoader__.load({
                 boxSizing: 'border-box',
                 borderRadius: '5px',
                 border: '1px solid var(--dsw-alias-border-l1, rgba(125, 125, 125, 0.2))',
-                background: 'var(--dsw-alias-bg-module-platform, var(--dsw-alias-bg-layer-1, #f8fafc))',
+                background: 'var(--dsw-alias-bg-module-platform, var(--dsw-alias-bg-layer-2, rgba(125, 125, 125, 0.08)))',
                 color: textPrimary,
                 outline: 'none',
               },
@@ -2193,7 +2193,7 @@ window.__ModuleLoader__.load({
               boxSizing: 'border-box',
               borderRadius: '8px',
               border: `1px solid ${itemBorder}`,
-              background: 'var(--dsh-c-input-bg, var(--dsw-alias-bg-base, #ffffff))',
+              background: 'var(--dsh-c-input-bg, var(--dsw-alias-bg-base, var(--dsw-alias-bg-layer-2, rgba(125, 125, 125, 0.08))))',
               color: textPrimary,
               outline: 'none',
               fontVariantNumeric: 'tabular-nums',
@@ -2371,12 +2371,12 @@ window.__ModuleLoader__.load({
   min-width: min(100%, 720px);
   margin: 0 auto;
   border-radius: 16px;
-  border: 1px solid var(--dsw-alias-border-l2, rgba(125, 125, 125, 0.2));
-  background: var(--dsw-alias-bg-base, #ffffff);
-  box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--dsw-alias-border-l1, rgba(125, 125, 125, 0.2));
+  background: var(--dsw-alias-bg-base, var(--dsw-alias-bg-layer-1, #1e293b));
+  box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.35);
   overflow: hidden;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  color: var(--dsw-alias-label-primary, #0f172a);
+  color: var(--dsw-alias-label-primary, var(--dsw-alias-text-primary, #f8fafc));
   box-sizing: border-box;
   transition: all 200ms ease;
 }
@@ -2385,9 +2385,9 @@ window.__ModuleLoader__.load({
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 46px;
+  height: 48px;
   padding: 0 18px;
-  background: var(--dsw-alias-bg-module-platform, var(--dsw-alias-bg-layer-1, #f8fafc));
+  background: var(--dsw-alias-bg-module-platform, var(--dsw-alias-bg-layer-2, rgba(125, 125, 125, 0.08)));
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgba(125, 125, 125, 0.15));
   user-select: none;
   box-sizing: border-box;
@@ -2400,16 +2400,16 @@ window.__ModuleLoader__.load({
 }
 
 .dsh-combo-sidebar {
-  width: 190px;
-  min-width: 190px;
-  max-width: 190px;
+  width: 200px;
+  min-width: 200px;
+  max-width: 200px;
   flex-shrink: 0;
-  background: var(--dsw-alias-bg-module-platform, var(--dsw-specific-sidebar-fill, #f8fafc));
+  background: var(--dsw-alias-bg-module-platform, var(--dsw-specific-sidebar-fill, rgba(125, 125, 125, 0.05)));
   border-right: 1px solid var(--dsw-alias-border-l1, rgba(125, 125, 125, 0.15));
   padding: 16px 10px;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
   box-sizing: border-box;
 }
 
@@ -2417,11 +2417,11 @@ window.__ModuleLoader__.load({
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 14px;
+  padding: 10px 14px;
   border-radius: 10px;
   font-size: 13px;
   font-weight: 500;
-  color: var(--dsw-alias-label-secondary, #64748b);
+  color: var(--dsw-alias-label-secondary, var(--dsw-alias-text-secondary, #94a3b8));
   background: transparent;
   border: 1px solid transparent;
   cursor: pointer;
@@ -2431,26 +2431,26 @@ window.__ModuleLoader__.load({
   box-sizing: border-box;
 }
 .dsh-combo-nav-item:hover {
-  background: var(--dsw-alias-interactive-bg-hover, rgba(125, 125, 125, 0.08));
-  color: var(--dsw-alias-label-primary, #0f172a);
+  background: var(--dsw-alias-interactive-bg-hover, rgba(125, 125, 125, 0.1));
+  color: var(--dsw-alias-label-primary, var(--dsw-alias-text-primary, #ffffff));
   transform: translateX(2px);
 }
 .dsh-combo-nav-item.active {
-  background: var(--dsw-alias-brand-primary-fade, rgba(37, 99, 235, 0.12));
-  border-color: var(--dsw-alias-brand-primary-fade2, rgba(37, 99, 235, 0.25));
-  color: var(--dsw-alias-brand-primary, #2563eb);
+  background: var(--dsw-alias-brand-primary-fade, rgba(37, 99, 235, 0.15));
+  border-color: var(--dsw-alias-brand-primary-fade2, rgba(37, 99, 235, 0.3));
+  color: var(--dsw-alias-brand-primary, #38bdf8);
   font-weight: 600;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.15);
 }
 
 .dsh-combo-content {
   flex: 1;
   min-width: 0;
-  width: calc(100% - 190px);
+  width: calc(100% - 200px);
   padding: 20px 24px 32px;
   overflow-y: auto;
   max-height: min(680px, calc(100vh - 120px));
-  background: var(--dsw-alias-bg-base, #ffffff);
+  background: var(--dsw-alias-bg-base, var(--dsw-alias-bg-layer-1, transparent));
   box-sizing: border-box;
 }
 
@@ -2469,23 +2469,23 @@ window.__ModuleLoader__.load({
 }
 
 .dsh-combo-card {
-  border: 1px solid var(--dsw-alias-border-l1, rgba(125, 125, 125, 0.15));
+  border: 1px solid var(--dsw-alias-border-l1, rgba(125, 125, 125, 0.18));
   border-radius: 14px;
   padding: 16px 20px;
   margin-bottom: 16px;
-  background: var(--dsw-alias-settings-card-fill, var(--dsw-alias-bg-layer-1, rgba(255, 255, 255, 0.8)));
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  background: var(--dsw-alias-settings-card-fill, var(--dsw-alias-bg-layer-1, rgba(125, 125, 125, 0.05)));
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   transition: all 180ms ease;
   box-sizing: border-box;
 }
 .dsh-combo-card:hover {
-  border-color: var(--dsw-alias-border-l2, rgba(125, 125, 125, 0.28));
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  border-color: var(--dsw-alias-border-l2, rgba(125, 125, 125, 0.3));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 .dsh-combo-card-title {
   font-size: 14px;
   font-weight: 600;
-  color: var(--dsw-alias-label-primary, #0f172a);
+  color: var(--dsw-alias-label-primary, var(--dsw-alias-text-primary, #f8fafc));
   margin-bottom: 12px;
 }
 
@@ -2493,8 +2493,8 @@ window.__ModuleLoader__.load({
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 20px;
-  background: var(--dsw-alias-bg-module-platform, var(--dsw-alias-bg-layer-1, #f8fafc));
+  padding: 14px 20px;
+  background: var(--dsw-alias-bg-module-platform, var(--dsw-alias-bg-layer-2, rgba(125, 125, 125, 0.08)));
   border-top: 1px solid var(--dsw-alias-border-l1, rgba(125, 125, 125, 0.15));
   flex-wrap: wrap;
   gap: 12px;
@@ -2505,8 +2505,8 @@ window.__ModuleLoader__.load({
   position: relative;
   border-radius: 14px;
   background: radial-gradient(ellipse at 50% 25%, #1e293b 0%, #0f172a 100%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 8px 24px -4px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 8px 24px -4px rgba(0, 0, 0, 0.45);
   overflow: hidden;
   margin-bottom: 18px;
   padding: 14px 18px 12px;
@@ -2543,23 +2543,23 @@ window.__ModuleLoader__.load({
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: var(--dsw-alias-brand-primary, #2563eb);
-  border: 2px solid #ffffff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  background: var(--dsw-alias-brand-primary, #38bdf8);
+  border: 2px solid var(--dsw-alias-bg-base, #ffffff);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 .dsh-combo-slider::-webkit-slider-thumb:hover {
   transform: scale(1.25);
-  box-shadow: 0 0 10px var(--dsw-alias-brand-primary, #2563eb);
+  box-shadow: 0 0 10px var(--dsw-alias-brand-primary, #38bdf8);
 }
 .dsh-combo-slider::-moz-range-thumb {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: var(--dsw-alias-brand-primary, #2563eb);
-  border: 2px solid #ffffff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  background: var(--dsw-alias-brand-primary, #38bdf8);
+  border: 2px solid var(--dsw-alias-bg-base, #ffffff);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
   cursor: pointer;
 }
 
@@ -2573,23 +2573,25 @@ window.__ModuleLoader__.load({
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 10px 8px;
+  padding: 12px 10px;
   border-radius: 12px;
   border: 1.5px solid var(--dsw-alias-border-l1, rgba(125, 125, 125, 0.15));
-  background: var(--dsw-alias-bg-module-platform, var(--dsw-alias-bg-layer-1, #f8fafc));
+  background: var(--dsw-alias-bg-module-platform, var(--dsw-alias-bg-layer-1, rgba(125, 125, 125, 0.05)));
+  color: var(--dsw-alias-label-primary, var(--dsw-alias-text-primary, inherit));
   cursor: pointer;
   text-align: center;
   transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
   box-sizing: border-box;
 }
 .dsh-combo-preset-item:hover {
-  border-color: var(--dsw-alias-brand-primary, #2563eb);
+  border-color: var(--dsw-alias-brand-primary, #38bdf8);
+  background: var(--dsw-alias-interactive-bg-hover, rgba(125, 125, 125, 0.1));
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
 }
 .dsh-combo-preset-item.active {
-  border-color: var(--dsw-alias-brand-primary, #2563eb);
-  background: var(--dsw-alias-brand-primary-fade, rgba(37, 99, 235, 0.1));
+  border-color: var(--dsw-alias-brand-primary, #38bdf8);
+  background: var(--dsw-alias-brand-primary-fade, rgba(37, 99, 235, 0.15));
   box-shadow: 0 0 12px rgba(37, 99, 235, 0.25);
 }
 
@@ -2604,32 +2606,32 @@ window.__ModuleLoader__.load({
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 8px 12px;
+  padding: 9px 12px;
   border-radius: 10px;
-  border: 1.5px solid var(--dsw-alias-border-l1, rgba(125, 125, 125, 0.15));
-  background: var(--dsw-alias-bg-module-platform, var(--dsw-alias-bg-layer-1, #f8fafc));
-  color: var(--dsw-alias-label-secondary, #64748b);
+  border: 1.5px solid var(--dsw-alias-border-l1, rgba(125, 125, 125, 0.18));
+  background: var(--dsw-alias-bg-module-platform, var(--dsw-alias-bg-layer-1, rgba(125, 125, 125, 0.05)));
+  color: var(--dsw-alias-label-secondary, var(--dsw-alias-text-secondary, #94a3b8));
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.16s ease;
 }
 .dsh-combo-pos-btn:hover {
-  background: var(--dsw-alias-interactive-bg-hover, rgba(125, 125, 125, 0.08));
-  color: var(--dsw-alias-label-primary, #0f172a);
+  background: var(--dsw-alias-interactive-bg-hover, rgba(125, 125, 125, 0.1));
+  color: var(--dsw-alias-label-primary, var(--dsw-alias-text-primary, #f8fafc));
   transform: translateY(-1px);
 }
 .dsh-combo-pos-btn.active {
-  background: var(--dsw-alias-brand-primary-fade, rgba(37, 99, 235, 0.12));
-  border-color: var(--dsw-alias-brand-primary, #2563eb);
-  color: var(--dsw-alias-brand-primary, #2563eb);
+  background: var(--dsw-alias-brand-primary-fade, rgba(37, 99, 235, 0.15));
+  border-color: var(--dsw-alias-brand-primary, #38bdf8);
+  color: var(--dsw-alias-brand-primary, #38bdf8);
   font-weight: 600;
 }
 
 .dsh-combo-tab-bar {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 4px;
+  gap: 5px;
   padding: 4px 0 10px;
   margin-bottom: 10px;
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgba(125, 125, 125, 0.15));
@@ -2639,30 +2641,30 @@ window.__ModuleLoader__.load({
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  padding: 6px 4px;
+  gap: 3px;
+  padding: 7px 4px;
   border-radius: 8px;
   font-size: 10px;
   font-weight: 500;
   border: 1px solid transparent;
   background: transparent;
-  color: var(--dsw-alias-label-secondary, #64748b);
+  color: var(--dsw-alias-label-secondary, var(--dsw-alias-text-secondary, #94a3b8));
   cursor: pointer;
   white-space: nowrap;
   transition: all 160ms cubic-bezier(0.16, 1, 0.3, 1);
   box-sizing: border-box;
 }
 .dsh-combo-tab-btn:hover {
-  background: var(--dsw-alias-interactive-bg-hover, rgba(125, 125, 125, 0.08));
-  color: var(--dsw-alias-label-primary, #0f172a);
+  background: var(--dsw-alias-interactive-bg-hover, rgba(125, 125, 125, 0.1));
+  color: var(--dsw-alias-label-primary, var(--dsw-alias-text-primary, #f8fafc));
   transform: translateY(-1px);
 }
 .dsh-combo-tab-btn.active {
-  background: var(--dsw-alias-brand-primary-fade, rgba(37, 99, 235, 0.12));
-  border-color: var(--dsw-alias-brand-primary-fade2, rgba(37, 99, 235, 0.3));
-  color: var(--dsw-alias-brand-primary, #2563eb);
+  background: var(--dsw-alias-brand-primary-fade, rgba(37, 99, 235, 0.15));
+  border-color: var(--dsw-alias-brand-primary-fade2, rgba(37, 99, 235, 0.35));
+  color: var(--dsw-alias-brand-primary, #38bdf8);
   font-weight: 600;
-  box-shadow: 0 1px 6px rgba(37, 99, 235, 0.15);
+  box-shadow: 0 1px 6px rgba(37, 99, 235, 0.2);
 }
 
 @keyframes dshcombo-slash-beam {
@@ -2783,7 +2785,7 @@ window.__ModuleLoader__.load({
                     onClick: () => save('comboMode', m.id),
                   },
                     h('span', { style: { fontSize: '18px', marginBottom: '2px' } }, m.icon),
-                    h('strong', { style: { fontSize: '12px', color: active ? '#2563eb' : textPrimary } }, m.name),
+                    h('strong', { style: { fontSize: '12px', color: active ? 'var(--dsw-alias-brand-primary, #38bdf8)' : textPrimary } }, m.name),
                     h('span', { style: { fontSize: '10px', color: textSecondary, marginTop: '2px' } }, m.desc))
                 }))),
             select('comboMode', '连击计算模式', COMBO_MODES, '选择是按流式 Token 实时打字暴击，还是按经典工具调用回合计算'),
@@ -2817,16 +2819,16 @@ window.__ModuleLoader__.load({
                         width: '100%',
                         height: '48px',
                         borderRadius: '8px',
-                        background: '#0f172a',
+                        background: 'var(--dsw-alias-bg-layer-2, rgba(125, 125, 125, 0.12))',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         marginBottom: '6px',
-                        boxShadow: active ? '0 0 12px rgba(37, 99, 235, 0.4)' : 'none',
+                        boxShadow: active ? '0 0 12px var(--dsw-alias-brand-primary, #38bdf8)' : 'none',
                       },
                     },
                       h('span', { style: { fontSize: '24px' } }, p.icon)),
-                    h('strong', { style: { fontSize: '12px', color: active ? '#2563eb' : textPrimary } }, p.name),
+                    h('strong', { style: { fontSize: '12px', color: active ? 'var(--dsw-alias-brand-primary, #38bdf8)' : textPrimary } }, p.name),
                     h('span', { style: { fontSize: '10px', color: textSecondary, marginTop: '2px' } }, p.desc))
                 }))),
             select('preset', '默认特效预设', PRESETS, '选择连击爆发时的视觉主题'),
@@ -2856,7 +2858,7 @@ window.__ModuleLoader__.load({
                         key: idx,
                         style: { width: '8px', height: '8px', borderRadius: '50%', background: s.color },
                       }))),
-                    h('strong', { style: { fontSize: '12px', color: active ? 'var(--dsw-alias-brand-primary, #2563eb)' : textPrimary } }, `${themeMeta.icon} ${themeMeta.name}`),
+                    h('strong', { style: { fontSize: '12px', color: active ? 'var(--dsw-alias-brand-primary, #38bdf8)' : textPrimary } }, `${themeMeta.icon} ${themeMeta.name}`),
                     h('span', { style: { fontSize: '10px', color: textSecondary, marginTop: '2px' } }, `${themeMeta.stops.length} 阶动态光晕`))
                 }))),
             select('colorTheme', '调色板主题预设', { classic: '经典能量 (绿/金/橙/紫)', cyberpunk: '赛博霓虹 (青/粉/紫/金)', sunset: '暮光烈阳 (金/橙/红/玫)', matrix: '极客矩阵 (翠绿/薄荷/白)', frost: '冰川极光 (天蓝/青/冰白)' }, '选择随连击跃升时的全局色彩方案')),
@@ -2886,7 +2888,7 @@ window.__ModuleLoader__.load({
                     },
                   },
                     h('span', { style: { fontSize: '20px', marginBottom: '4px' } }, s.icon),
-                    h('strong', { style: { fontSize: '12px', color: active ? '#2563eb' : textPrimary } }, s.name),
+                    h('strong', { style: { fontSize: '12px', color: active ? 'var(--dsw-alias-brand-primary, #38bdf8)' : textPrimary } }, s.name),
                     h('span', { style: { fontSize: '10px', color: textSecondary, marginTop: '2px' } }, s.desc))
                 }))),
             select('soundTheme', '音效风格选择', SOUND_THEMES, '选择最符合当前敲击节奏与心境的音色'),
@@ -2919,9 +2921,9 @@ window.__ModuleLoader__.load({
                   fontSize: '12px',
                   fontWeight: 600,
                   borderRadius: '8px',
-                  border: 'none',
-                  background: '#1d2d50',
-                  color: '#ffffff',
+                  border: '1px solid var(--dsw-alias-border-l1, rgba(125,125,125,0.25))',
+                  background: 'var(--dsw-alias-bg-layer-2, rgba(125, 125, 125, 0.15))',
+                  color: textPrimary,
                   cursor: 'pointer',
                   whiteSpace: 'nowrap',
                   display: 'inline-flex',
@@ -2953,11 +2955,12 @@ window.__ModuleLoader__.load({
             toggle('showTimer', '显示倒计时进度条', '在悬浮窗顶部展示本轮连击有效期的收缩条'),
             toggle('showGain', '显示增量提示 (+N)', '显示如 +1、+3 等单次跃升的浮动数字'),
             toggle('showToolName', '显示思考 / 输出 / 工具名', '显示「思考」、「输出」或调用的具体工具名字'),
+            select('animation', '反馈动画强度', { off: '关闭', normal: '普通', strong: '强烈' }, '控制数字命中时的缩放与倾斜力度')),
+          card('沉浸扩展增强 (默认关闭)',
             toggle('showCrit', '暴击角标提示 (CRIT!)', '高吞吐批量跃升时在增量前标记 CRIT!'),
             toggle('showMilestones', '连击里程碑成就浮现', '达到 10/20/50 等心流阈值时短暂浮现里程碑称号'),
             toggle('recapCard', '回合结束战报卡片 (Turn Recap)', '每轮 Agent 思考执行完成后显示段位评价与战报'),
-            toggle('screenVignette', '高连击全屏边缘光晕 (Screen Vignette)', '开启后屏幕四周环绕柔和环境呼吸发光'),
-            select('animation', '反馈动画强度', { off: '关闭', normal: '普通', strong: '强烈' }, '控制数字命中时的缩放与倾斜力度'))),
+            toggle('screenVignette', '高连击全屏边缘光晕 (Screen Vignette)', '开启后屏幕四周环绕柔和环境呼吸发光'))),
 
         // Tab 6: advanced 高级选项
         tabPane('advanced', '高级选项', '配置工具调用黑名单与自动化过滤规则',
@@ -2984,9 +2987,10 @@ window.__ModuleLoader__.load({
                   fontWeight: 600,
                   borderRadius: '8px',
                   border: 'none',
-                  background: '#2563eb',
+                  background: 'var(--dsw-alias-brand-primary, #38bdf8)',
                   color: '#ffffff',
                   cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(56, 189, 248, 0.3)',
                 },
               }, '🚀 启动屏幕 HUD 体验')))),
       ]
@@ -3084,10 +3088,10 @@ const POP_TABS = [
             overflowY: 'auto',
             padding: '12px 14px',
             borderRadius: '16px',
-            border: '1px solid var(--dsw-alias-border-l2, rgba(125, 125, 125, 0.25))',
-            background: 'var(--dsw-alias-bg-overlay, var(--dsw-alias-bg-base, #ffffff))',
+            border: '1px solid var(--dsw-alias-border-l1, rgba(125, 125, 125, 0.25))',
+            background: 'var(--dsw-alias-bg-overlay, var(--dsw-alias-bg-layer-1, var(--dsw-alias-bg-base, #1e293b)))',
             color: textPrimary,
-            boxShadow: '0 16px 40px -4px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.06)',
+            boxShadow: '0 16px 40px -4px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--dsw-alias-border-l1, rgba(255, 255, 255, 0.08))',
             backdropFilter: 'blur(20px)',
             fontFamily: 'system-ui, -apple-system, sans-serif',
             fontSize: '11px',
@@ -3120,7 +3124,7 @@ const POP_TABS = [
                 fontWeight: 600,
                 borderRadius: '6px',
                 border: 'none',
-                background: 'var(--dsw-alias-brand-primary, #2563eb)',
+                background: 'var(--dsw-alias-brand-primary, #38bdf8)',
                 color: '#ffffff',
                 cursor: 'pointer',
                 boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)',
@@ -3157,7 +3161,7 @@ const POP_TABS = [
               c.select('preset', '特效主题预设', PRESETS, h('button', {
                 type: 'button',
                 onClick: previewComboHud,
-                style: { padding: '2px 6px', fontSize: '10px', borderRadius: '4px', border: 'none', background: 'var(--dsw-alias-brand-primary, #2563eb)', color: '#fff', cursor: 'pointer' } }, '测试'))),
+                style: { padding: '2px 6px', fontSize: '10px', borderRadius: '4px', border: 'none', background: 'var(--dsw-alias-brand-primary, #38bdf8)', color: '#fff', cursor: 'pointer' } }, '测试'))),
             c.group('粒子物理表现',
               c.range('particleCount', '粒子数量', 0, 80, 1, ''),
               c.range('particleSize', '粒子碎片尺寸', 1, 12, 0.5, ' px'),
@@ -3185,7 +3189,7 @@ const POP_TABS = [
                 type: 'button',
                 'data-dsh-combo-setting': 'soundPreview',
                 onClick: () => previewSound(),
-                style: { padding: '2px 7px', fontSize: '10px', borderRadius: '4px', border: 'none', background: 'var(--dsw-alias-brand-primary, #2563eb)', color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' },
+                style: { padding: '2px 7px', fontSize: '10px', borderRadius: '4px', border: 'none', background: 'var(--dsw-alias-brand-primary, #38bdf8)', color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' },
               }, '🔔 试听'))),
             c.group('音量与门槛',
               c.range('soundVolume', '打击音量大小', 0, 1, 0.05, ''),
@@ -3200,11 +3204,12 @@ const POP_TABS = [
               c.toggle('showTimer', '显示倒计时进度条'),
               c.toggle('showGain', '显示连击增量 (+N)'),
               c.toggle('showToolName', '显示思考/输出/工具名'),
+              c.select('animation', '反馈动画力度', { off: '关闭', normal: '普通', strong: '强烈' })),
+            c.group('沉浸扩展增强 (可选)',
               c.toggle('showCrit', '暴击角标提示 (CRIT!)'),
               c.toggle('showMilestones', '连击里程碑成就浮现'),
               c.toggle('recapCard', '回合结束战报卡片'),
-              c.toggle('screenVignette', '高连击全屏边缘光晕'),
-              c.select('animation', '反馈动画力度', { off: '关闭', normal: '普通', strong: '强烈' }))),
+              c.toggle('screenVignette', '高连击全屏边缘光晕'))),
 
           pane('advanced',
             c.group('过滤与固定规则',
@@ -3254,7 +3259,7 @@ const POP_TABS = [
                   fontWeight: 500,
                   borderRadius: '6px',
                   border: '1px solid var(--dsw-alias-border-l1, rgba(125, 125, 125, 0.2))',
-                  background: 'var(--dsw-alias-bg-module-platform, var(--dsw-alias-bg-layer-1, #f8fafc))',
+                  background: 'var(--dsw-alias-bg-module-platform, var(--dsw-alias-bg-layer-2, rgba(125, 125, 125, 0.08)))',
                   color: textPrimary,
                   cursor: 'pointer',
                 },
@@ -3269,7 +3274,7 @@ const POP_TABS = [
                   fontWeight: 600,
                   borderRadius: '6px',
                   border: 'none',
-                  background: 'var(--dsw-alias-brand-primary, #2563eb)',
+                  background: 'var(--dsw-alias-brand-primary, #38bdf8)',
                   color: '#ffffff',
                   cursor: 'pointer',
                   boxShadow: '0 2px 6px rgba(37, 99, 235, 0.3)',
@@ -3855,7 +3860,7 @@ const POP_TABS = [
                 fontWeight: 500,
                 borderRadius: '8px',
                 border: '1px solid var(--dsw-alias-border-l1, rgba(125, 125, 125, 0.2))',
-                background: 'var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-module-platform, #f8fafc))',
+                background: 'var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-module-platform, rgba(125, 125, 125, 0.12)))',
                 color: textPrimary,
                 cursor: 'pointer',
                 transition: 'all 140ms ease',
@@ -3871,7 +3876,7 @@ const POP_TABS = [
                 fontWeight: 600,
                 borderRadius: '8px',
                 border: 'none',
-                background: 'var(--dsw-alias-brand-primary, #2563eb)',
+                background: 'var(--dsw-alias-brand-primary, #38bdf8)',
                 color: '#ffffff',
                 cursor: 'pointer',
                 boxShadow: '0 2px 8px rgba(37, 99, 235, 0.3)',
