@@ -1,6 +1,6 @@
 {
   "name": "dsh-combo",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "PowerMode-style real-time streaming token and tool-call combo feedback for DeepSeek Harness, featuring 5 distinct presets, 6 synthesized audio themes, and a live HUD simulator.",
   "type": "module",
   "main": "./index.js",
@@ -41,6 +41,9 @@
   ],
   "license": "MIT",
   "peerDependencies": {
+    "@deepseek-ai/schemastery": "~3.18.4"
+  },
+  "devDependencies": {
     "@deepseek-ai/schemastery": "~3.18.4"
   },
   "dsh": {

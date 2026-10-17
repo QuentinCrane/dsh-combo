@@ -2534,8 +2534,8 @@ window.__ModuleLoader__.load({
   100% { transform: scale(1); opacity: 1; }
 }
 @keyframes dshcombo-vignette-pulse {
-  0%, 100% { opacity: 0.25; }
-  50% { opacity: 0.55; }
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 0.95; }
 }
 .dsh-combo-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -2769,12 +2769,22 @@ window.__ModuleLoader__.load({
         h('p', { style: { fontSize: '11px', color: textSecondary, margin: '0 0 14px' } }, subtitle),
         cards)
 
+      const hiddenSelect = (key, options) => h('select', {
+        key: `hidden-select-${key}`,
+        tabIndex: -1,
+        'data-dsh-combo-setting': key,
+        value: config[key],
+        onChange: (e) => save(key, e.target.value),
+        style: { position: 'absolute', opacity: 0, pointerEvents: 'none', width: 0, height: 0, margin: 0 },
+        'aria-hidden': 'true',
+      }, Object.entries(options).map(([value, text]) => h('option', { key: value, value }, text)))
+
       return [
         // Tab 1: basic 基础设置
-        tabPane('basic', '基础设置', '设置连击的基本行为、判定模式与节拍速度',
-          card('连击行为',
+        tabPane('basic', '基础设置', '设置连击判定模式、倒计时进度条与触发节奏',
+          card('连击行为与判定模式',
             toggle('enabled', '显示连击 HUD', '大模型输出或调用工具时呈现悬浮计数窗'),
-            h('div', { key: 'mode-grid', style: { margin: '8px 0 10px' } },
+            h('div', { key: 'mode-grid', style: { margin: '8px 0 6px' } },
               h('span', { style: { display: 'block', fontSize: '12px', fontWeight: 500, color: textSecondary, marginBottom: '6px' } }, '连击判定模式:'),
               h('div', { className: 'dsh-combo-preset-grid' },
                 MODE_CARDS.map(m => {
@@ -2788,10 +2798,13 @@ window.__ModuleLoader__.load({
                     h('strong', { style: { fontSize: '12px', color: active ? 'var(--dsw-alias-brand-primary, #38bdf8)' : textPrimary } }, m.name),
                     h('span', { style: { fontSize: '10px', color: textSecondary, marginTop: '2px' } }, m.desc))
                 }))),
-            select('comboMode', '连击计算模式', COMBO_MODES, '选择是按流式 Token 实时打字暴击，还是按经典工具调用回合计算'),
-            range('tokensPerCombo', 'Token 连击比率', 1, 50, 1, ' Token/次', '流式打字输出时每多少个 Token 计为一次连击'),
-            range('timerMs', '倒计时条时长', 1000, 60000, 1000, ' ms', '单次连击完成后倒计时条耗尽的时长；开启空闲重置时优先遵循空闲重置时长')),
-          card('触发与节奏',
+            hiddenSelect('comboMode', COMBO_MODES),
+            range('tokensPerCombo', 'Token 连击比率', 1, 50, 1, ' Token/次', '流式打字输出时每多少个 Token 计为一次连击')),
+          card('倒计时条管理',
+            toggle('showTimer', '显示倒计时进度条', '在悬浮窗顶部展示本轮连击有效期的收缩条'),
+            range('timerMs', '倒计时条时长', 1000, 60000, 1000, ' ms', '单次连击完成后倒计时条耗尽的时长'),
+            range('barHeight', '进度条粗细高度', 2, 16, 1, ' px', '连击倒计时进度条的高度粗细')),
+          card('触发与节奏规则',
             range('powerThreshold', '特效触发门槛', 0, 100, 1, ' 次', '连击达到多少次后才开始迸发粒子或特效'),
             range('effectFrequency', '特效触发频率', 1, 20, 1, ' 次/回', '每隔多少次连击触发一次特效冲击'),
             range('expireMs', '空闲重置时间', 0, 600000, 1000, ' ms', '闲置超过该时长自动重置连击，倒计时条同步倒数归零；设为 0 为无限模式（永不清零）'),
@@ -2799,9 +2812,9 @@ window.__ModuleLoader__.load({
 
         // Tab 2: effects 特效设置
         tabPane('effects', '特效设置', '支持多种连击特效与物理微动震颤，实时动态预览',
-          card('连击特效',
+          card('连击视觉特效预设',
             toggle('particles', '启用粒子特效', '连击达到门槛时向四周喷射动态粒子'),
-            h('div', { key: 'fx-grid', style: { margin: '10px 0 12px' } },
+            h('div', { key: 'fx-grid', style: { margin: '10px 0 8px' } },
               h('span', { style: { display: 'block', fontSize: '12px', fontWeight: 500, color: textSecondary, marginBottom: '8px' } }, '选择特效视觉主题 (点击即时生效):'),
               h('div', { className: 'dsh-combo-preset-grid' },
                 PRESET_CARDS.map(p => {
@@ -2817,7 +2830,7 @@ window.__ModuleLoader__.load({
                     h('div', {
                       style: {
                         width: '100%',
-                        height: '48px',
+                        height: '42px',
                         borderRadius: '8px',
                         background: 'var(--dsw-alias-bg-layer-2, rgba(125, 125, 125, 0.12))',
                         display: 'flex',
@@ -2827,23 +2840,24 @@ window.__ModuleLoader__.load({
                         boxShadow: active ? '0 0 12px var(--dsw-alias-brand-primary, #38bdf8)' : 'none',
                       },
                     },
-                      h('span', { style: { fontSize: '24px' } }, p.icon)),
+                      h('span', { style: { fontSize: '22px' } }, p.icon)),
                     h('strong', { style: { fontSize: '12px', color: active ? 'var(--dsw-alias-brand-primary, #38bdf8)' : textPrimary } }, p.name),
                     h('span', { style: { fontSize: '10px', color: textSecondary, marginTop: '2px' } }, p.desc))
                 }))),
-            select('preset', '默认特效预设', PRESETS, '选择连击爆发时的视觉主题'),
+            hiddenSelect('preset', PRESETS),
             range('particleCount', '粒子数量', 0, 80, 1, '', '设为 0 时根据连击段位自动增多'),
             range('particleSize', '粒子大小', 1, 12, .5, ' px', '粒子碎片的基准尺寸'),
             range('particleSpread', '扩散范围', .25, 2, .05, '×', '粒子从中心迸发向外的辐射半径比例'),
             range('effectDurationMs', '特效时长', 200, 2500, 50, ' ms', '单次粒子与特效从爆发到消散的总毫秒数')),
-          card('连击物理抖动',
+          card('连击物理微动与动效',
             toggle('shake', '连击物理抖动', '数字命中时的微动物理打击震颤'),
-            range('shakeIntensity', '抖动强度', 0, 12, .5, ' px', '连击命中时画面的微动振幅'))),
+            range('shakeIntensity', '抖动强度', 0, 12, .5, ' px', '连击命中时画面的微动振幅'),
+            select('animation', '反馈动画强度', { off: '关闭', normal: '普通', strong: '强烈' }, '控制数字命中时的缩放与倾斜力度'))),
 
         // Tab 3: appearance 外观风格
         tabPane('appearance', '外观风格', '自定义计数器尺寸、高阶色彩蜕变与调色板主题',
           card('调色板主题风格',
-            h('div', { key: 'color-theme-grid', style: { margin: '8px 0 12px' } },
+            h('div', { key: 'color-theme-grid', style: { margin: '8px 0 8px' } },
               h('span', { style: { display: 'block', fontSize: '12px', fontWeight: 500, color: textSecondary, marginBottom: '8px' } }, '选择动态色彩调色板:'),
               h('div', { className: 'dsh-combo-preset-grid' },
                 Object.entries(COLOR_THEMES).map(([themeId, themeMeta]) => {
@@ -2861,20 +2875,19 @@ window.__ModuleLoader__.load({
                     h('strong', { style: { fontSize: '12px', color: active ? 'var(--dsw-alias-brand-primary, #38bdf8)' : textPrimary } }, `${themeMeta.icon} ${themeMeta.name}`),
                     h('span', { style: { fontSize: '10px', color: textSecondary, marginTop: '2px' } }, `${themeMeta.stops.length} 阶动态光晕`))
                 }))),
-            select('colorTheme', '调色板主题预设', { classic: '经典能量 (绿/金/橙/紫)', cyberpunk: '赛博霓虹 (青/粉/紫/金)', sunset: '暮光烈阳 (金/橙/红/玫)', matrix: '极客矩阵 (翠绿/薄荷/白)', frost: '冰川极光 (天蓝/青/冰白)' }, '选择随连击跃升时的全局色彩方案')),
-          card('尺寸与发光',
+            hiddenSelect('colorTheme', { classic: '经典能量', cyberpunk: '赛博霓虹', sunset: '暮光烈阳', matrix: '极客矩阵', frost: '冰川极光' })),
+          card('尺寸比例与发光',
             range('scale', '计数器大小', .5, 2, .05, '×', '调整屏幕连击悬浮窗的整体缩放比例'),
-            range('barHeight', '进度条高度', 2, 16, 1, ' px', '连击倒计时进度条的高度粗细'),
             range('glow', '光晕强度', 0, 2, .1, '', '连击数字与特效周围的发光光晕')),
-          card('个性化色彩',
+          card('个性化色彩定制',
             color('accentColor', '特效自定义颜色', '#9be779', '自定义特效与进度条色彩，留空为连击数自适应'),
             color('numberColor', '数字自定义颜色', '#f5fff0', '自定义连击数字主色，留空为自动'))),
 
-        // Tab 4: sound 打击音效
+        // Tab 4: sound 音效设置
         tabPane('sound', '音效设置', '配置连击时的打击音频与多风格主题音色',
-          card('音效与提示',
+          card('打击音频与音色主题',
             toggle('sound', '启用连击打击音效', '利用 Web Audio 合成多风格打击音效，零音频文件依赖'),
-            h('div', { key: 'sound-grid', style: { margin: '10px 0 12px' } },
+            h('div', { key: 'sound-grid', style: { margin: '10px 0 8px' } },
               h('span', { style: { display: 'block', fontSize: '12px', fontWeight: 500, color: textSecondary, marginBottom: '8px' } }, '音效主题风格 (点击试听):'),
               h('div', { className: 'dsh-combo-preset-grid' },
                 SOUND_CARDS.map(s => {
@@ -2891,9 +2904,7 @@ window.__ModuleLoader__.load({
                     h('strong', { style: { fontSize: '12px', color: active ? 'var(--dsw-alias-brand-primary, #38bdf8)' : textPrimary } }, s.name),
                     h('span', { style: { fontSize: '10px', color: textSecondary, marginTop: '2px' } }, s.desc))
                 }))),
-            select('soundTheme', '音效风格选择', SOUND_THEMES, '选择最符合当前敲击节奏与心境的音色'),
-            range('soundVolume', '打击音量', 0, 1, .05, '', '音效输出响度'),
-            range('soundFrom', '起播连击数门槛', 0, 100, 1, ' 次', '达到指定连击数后才触发音效，避免单次零散发声'),
+            hiddenSelect('soundTheme', SOUND_THEMES),
             h('div', {
               key: 'audition-card',
               style: {
@@ -2931,12 +2942,15 @@ window.__ModuleLoader__.load({
                   gap: '6px',
                   transition: 'all 160ms ease',
                 },
-              }, '🔔 试听打击音效')))),
+              }, '🔔 试听打击音效'))),
+          card('音量与触发门槛',
+            range('soundVolume', '打击音量', 0, 1, .05, '', '音效输出响度'),
+            range('soundFrom', '起播连击数门槛', 0, 100, 1, ' 次', '达到指定连击数后才触发音效，避免单次零散发声'))),
 
         // Tab 5: display 显示与界面
         tabPane('display', '显示与界面', '设置悬浮窗在屏幕上的方位角与展示元素',
-          card('停靠位置',
-            h('div', { key: 'pos-grid', style: { marginBottom: '10px' } },
+          card('屏幕停靠方位',
+            h('div', { key: 'pos-grid', style: { marginBottom: '8px' } },
               h('span', { style: { display: 'block', fontSize: '12px', fontWeight: 500, color: textSecondary, marginBottom: '8px' } }, '屏幕停靠角落方位:'),
               h('div', { className: 'dsh-combo-pos-grid' },
                 POS_OPTIONS.map(pos => {
@@ -2948,14 +2962,12 @@ window.__ModuleLoader__.load({
                     onClick: () => save('position', pos.id),
                   }, pos.name)
                 }))),
-            select('position', '浮层位置', { 'top-right': '右上角', 'top-left': '左上角', 'bottom-right': '右下角', 'bottom-left': '左下角' }, '选择悬浮 HUD 停靠的屏幕角落'),
+            hiddenSelect('position', { 'top-right': '右上角', 'top-left': '左上角', 'bottom-right': '右下角', 'bottom-left': '左下角' }),
             range('offsetX', '水平边距', 0, 240, 2, ' px', '离屏幕边缘的水平像素距离'),
             range('offsetY', '垂直边距', 0, 240, 2, ' px', '离屏幕边缘的垂直像素距离')),
           card('界面元素显示',
-            toggle('showTimer', '显示倒计时进度条', '在悬浮窗顶部展示本轮连击有效期的收缩条'),
             toggle('showGain', '显示增量提示 (+N)', '显示如 +1、+3 等单次跃升的浮动数字'),
-            toggle('showToolName', '显示思考 / 输出 / 工具名', '显示「思考」、「输出」或调用的具体工具名字'),
-            select('animation', '反馈动画强度', { off: '关闭', normal: '普通', strong: '强烈' }, '控制数字命中时的缩放与倾斜力度')),
+            toggle('showToolName', '显示思考 / 输出 / 工具名', '显示「思考」、「输出」或调用的具体工具名字')),
           card('沉浸扩展增强 (默认关闭)',
             toggle('showCrit', '暴击角标提示 (CRIT!)', '高吞吐批量跃升时在增量前标记 CRIT!'),
             toggle('showMilestones', '连击里程碑成就浮现', '达到 10/20/50 等心流阈值时短暂浮现里程碑称号'),
@@ -3131,6 +3143,46 @@ const POP_TABS = [
               },
             }, '⚡ 预览')),
 
+          // Quick Preset Bar for 1-click change
+          h('div', {
+            style: {
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '4px',
+              padding: '4px',
+              marginBottom: '8px',
+              background: 'var(--dsw-alias-bg-module-platform, var(--dsw-alias-bg-layer-2, rgba(125, 125, 125, 0.08)))',
+              borderRadius: '8px',
+            },
+          },
+            PRESET_CARDS.map(p => {
+              const active = config.preset === p.id
+              return h('button', {
+                key: `quick-preset-${p.id}`,
+                type: 'button',
+                title: `${p.name}: ${p.desc}`,
+                onClick: () => {
+                  save('preset', p.id)
+                  if (setDemoTool) setDemoTool(p.name)
+                },
+                style: {
+                  flex: 1,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '3px 0',
+                  fontSize: '11px',
+                  borderRadius: '6px',
+                  border: active ? '1px solid var(--dsw-alias-brand-primary, #38bdf8)' : '1px solid transparent',
+                  background: active ? 'var(--dsw-alias-brand-primary-fade, rgba(56, 189, 248, 0.18))' : 'transparent',
+                  color: active ? 'var(--dsw-alias-brand-primary, #38bdf8)' : textSecondary,
+                  cursor: 'pointer',
+                  transition: 'all 120ms ease',
+                },
+              }, h('span', { style: { fontSize: '13px' } }, p.icon))
+            })),
+
           // Grid Tab bar
           h('div', { className: 'dsh-combo-tab-bar' },
             POP_TABS.map(item => h('button', {
@@ -3147,9 +3199,11 @@ const POP_TABS = [
             c.group('核心功能',
               c.toggle('enabled', '启用连击 HUD'),
               c.select('comboMode', '连击计算模式', COMBO_MODES)),
-            c.group('节拍与节奏',
-              c.range('tokensPerCombo', 'Token 连击比率', 1, 50, 1, ' Token'),
+            c.group('倒计时与节拍',
+              c.toggle('showTimer', '显示倒计时进度条'),
               c.range('timerMs', '倒计时条时长', 1000, 60000, 1000, ' ms'),
+              c.range('barHeight', '进度条高度', 2, 16, 1, ' px'),
+              c.range('tokensPerCombo', 'Token 连击比率', 1, 50, 1, ' Token'),
               c.range('expireMs', '空闲重置时间', 0, 600000, 1000, ' ms')),
             c.group('触发门槛',
               c.range('powerThreshold', '特效触发门槛', 0, 100, 1, ' 次'),
@@ -3167,16 +3221,16 @@ const POP_TABS = [
               c.range('particleSize', '粒子碎片尺寸', 1, 12, 0.5, ' px'),
               c.range('particleSpread', '粒子扩散范围', 0.25, 2, 0.05, '×'),
               c.range('effectDurationMs', '特效爆发时长', 200, 2500, 50, ' ms')),
-            c.group('命中物理微动',
+            c.group('命中物理与动效',
               c.toggle('shake', '连击物理抖动'),
-              c.range('shakeIntensity', '命中震颤强度', 0, 12, 0.5, ' px'))),
+              c.range('shakeIntensity', '命中震颤强度', 0, 12, 0.5, ' px'),
+              c.select('animation', '反馈动画力度', { off: '关闭', normal: '普通', strong: '强烈' }))),
 
           pane('appearance',
             c.group('色彩风格',
               c.select('colorTheme', '调色板风格', { classic: '经典能量 (绿/金/橙/紫)', cyberpunk: '赛博霓虹 (青/粉/紫/金)', sunset: '暮光烈阳 (金/橙/红/玫)', matrix: '极客矩阵 (翠绿/薄荷/白)', frost: '冰川极光 (天蓝/青/冰白)' })),
             c.group('悬浮尺寸与发光',
               c.range('scale', '计数悬浮窗缩放', 0.5, 2, 0.05, '×'),
-              c.range('barHeight', '连击倒计时条高度', 2, 16, 1, ' px'),
               c.range('glow', '数字光晕发光', 0, 2, 0.1, '')),
             c.group('自定义颜色',
               c.color('accentColor', '特效自定义颜色', '#9be779'),
@@ -3201,10 +3255,8 @@ const POP_TABS = [
               c.range('offsetX', '水平边缘间距', 0, 240, 2, ' px'),
               c.range('offsetY', '垂直边缘间距', 0, 240, 2, ' px')),
             c.group('界面要素展示',
-              c.toggle('showTimer', '显示倒计时进度条'),
               c.toggle('showGain', '显示连击增量 (+N)'),
-              c.toggle('showToolName', '显示思考/输出/工具名'),
-              c.select('animation', '反馈动画力度', { off: '关闭', normal: '普通', strong: '强烈' })),
+              c.toggle('showToolName', '显示思考/输出/工具名')),
             c.group('沉浸扩展增强 (可选)',
               c.toggle('showCrit', '暴击角标提示 (CRIT!)'),
               c.toggle('showMilestones', '连击里程碑成就浮现'),
@@ -3909,14 +3961,38 @@ const POP_TABS = [
       frames.push('[data-dsh-combo-pin]:hover{opacity:1!important}')
       frames.push('[data-dsh-combo-pin]:focus-visible{opacity:1!important;outline:2px solid currentColor;outline-offset:3px}')
       frames.push('@media(max-width:480px){[data-dsh-combo-badge]{zoom:.8}}')
-      frames.push('@media (prefers-reduced-motion:reduce){[data-dsh-combo],[data-dsh-combo] *:not([data-dsh-combo-bar]){animation:none!important;transition:none!important}[data-dsh-combo-burst]{display:none!important}}')
+      frames.push('@media (prefers-reduced-motion:reduce){[data-dsh-combo],[data-dsh-combo] *:not([data-dsh-combo-bar]){animation:none!important;transition:none!important}[data-dsh-combo-burst]{display:none!important}[data-dsh-combo-vignette]{animation:none!important;transition:none!important}}')
       return h('style', { 'data-dsh-combo-style': '' }, frames.join(''))
     }
 
     function ScreenVignette({ tier, enabled, streak }) {
       if (!enabled || streak < 10) return null
-      const glowSpread = Math.min(160, Math.max(36, streak * 2.2))
-      const glowColor = tier.halo || 'rgba(16, 185, 129, 0.45)'
+      const baseColor = tier.accent || '#10b981'
+      let r = 16, g = 185, b = 129
+      if (typeof baseColor === 'string' && baseColor.startsWith('#')) {
+        const clean = baseColor.slice(1).trim()
+        if (clean.length === 6) {
+          const pr = parseInt(clean.slice(0, 2), 16)
+          const pg = parseInt(clean.slice(2, 4), 16)
+          const pb = parseInt(clean.slice(4, 6), 16)
+          if (!Number.isNaN(pr) && !Number.isNaN(pg) && !Number.isNaN(pb)) {
+            r = pr; g = pg; b = pb
+          }
+        } else if (clean.length === 3) {
+          const pr = parseInt(clean[0] + clean[0], 16)
+          const pg = parseInt(clean[1] + clean[1], 16)
+          const pb = parseInt(clean[2] + clean[2], 16)
+          if (!Number.isNaN(pr) && !Number.isNaN(pg) && !Number.isNaN(pb)) {
+            r = pr; g = pg; b = pb
+          }
+        }
+      }
+      const alpha = Math.min(0.22, Math.max(0.08, 0.08 + (streak - 10) * 0.003))
+      const innerColor = `rgba(${r}, ${g}, ${b}, 0)`
+      const midColor = `rgba(${r}, ${g}, ${b}, ${(alpha * 0.4).toFixed(3)})`
+      const edgeColor = `rgba(${r}, ${g}, ${b}, ${alpha.toFixed(3)})`
+      const outerBorder = `rgba(${r}, ${g}, ${b}, ${(alpha * 0.65).toFixed(3)})`
+
       return h('div', {
         'data-dsh-combo-vignette': '',
         'aria-hidden': 'true',
@@ -3925,9 +4001,10 @@ const POP_TABS = [
           inset: 0,
           pointerEvents: 'none',
           zIndex: 9999,
-          boxShadow: `inset 0 0 ${glowSpread}px ${glowColor}, inset 0 0 ${glowSpread / 2}px ${tier.accent || glowColor}`,
-          animation: 'dshcombo-vignette-pulse 2s ease-in-out infinite',
-          transition: 'box-shadow 360ms ease, opacity 360ms ease',
+          background: `radial-gradient(ellipse 90% 82% at 50% 50%, ${innerColor} 68%, ${midColor} 88%, ${edgeColor} 100%)`,
+          boxShadow: `inset 0 0 140px ${outerBorder}, inset 0 0 40px ${midColor}`,
+          animation: 'dshcombo-vignette-pulse 5s ease-in-out infinite',
+          transition: 'background 600ms ease, box-shadow 600ms ease, opacity 600ms ease',
         },
       })
     }
@@ -3946,7 +4023,10 @@ const POP_TABS = [
       const config = { ...hostConfig, ...appearance }
       const combo = useCombo(props.sessions, props.uiSession, config)
       const tier = tierOf(combo.score || 0, config.colorTheme)
-      if (config.accentColor) tier.halo = `rgba(${parseInt(config.accentColor.slice(1,3),16)},${parseInt(config.accentColor.slice(3,5),16)},${parseInt(config.accentColor.slice(5,7),16)},.45)`
+      if (config.accentColor) {
+        tier.accent = config.accentColor
+        tier.halo = `rgba(${parseInt(config.accentColor.slice(1,3),16)},${parseInt(config.accentColor.slice(3,5),16)},${parseInt(config.accentColor.slice(5,7),16)},.45)`
+      }
 
       return h(React.Fragment, null,
         h(ComboStyles, null),

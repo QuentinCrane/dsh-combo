@@ -1493,5 +1493,17 @@ test('innovative features: critical hits, milestones, recap cards, and screen vi
   assert.ok(mounted.all().some(node => ownText(node)?.includes('回合战报结算')), 'recap presents Chinese title')
 })
 
-
-
+test('ScreenVignette hex color parsing handles RGB components with zero correctly', async () => {
+  const { mounted, comboFace } = mountCombo({
+    config: { screenVignette: true, accentColor: '#ff0000' },
+    combo: { combo: 0, tool: '' },
+  })
+  await settle()
+  comboFace.set({ combo: 25, tool: 'bash' })
+  mounted.update()
+  const vignette = findAll(mounted, node => node.attributes?.['data-dsh-combo-vignette'] !== undefined)[0]
+  assert.ok(vignette, 'renders vignette')
+  const bg = vignette.style?.background || ''
+  assert.ok(bg.includes('255, 0, 0'), `background contains parsed red RGB 255, 0, 0 (got: ${bg})`)
+  assert.ok(!bg.includes('255, 185, 129'), 'does not corrupt 0-components into default 185 or 129')
+})

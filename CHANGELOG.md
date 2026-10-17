@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.7.0 — 2026-10-17
+
+- **Immersion Enhancements**:
+  - Added full-screen ambient energy vignette (`screenVignette`) with breathing animation that scales with active streak tiers (10+). Fixed hex color parsing when RGB channels contain zero (e.g. `#ff0000`).
+  - Added floating milestone achievement banners (`showMilestones`) triggered at streak milestones (10x, 20x, 50x, 100x, etc.).
+  - Added critical hit badge (`showCrit`) displaying `CRIT!` on high-throughput token bursts.
+  - Added post-turn victory recap card (`recapCard`) summarizing completed combo streaks with letter grading.
+- **HUD & UI Refinements**:
+  - Keep hidden setting selectors out of keyboard navigation and respect reduced-motion preferences for the screen vignette.
+  - Added a 1-click preset switching bar at the top of the HUD quick-tune popover.
+  - Reorganized settings groups to avoid duplicate controls and align tab hierarchies between the popover and Plugins configuration page.
+- **Backward Compatibility & Strict Type Safety**:
+  - Restored robust Schemastery configuration loader parsing so legacy string-quoted YAML settings (such as `soundVolume: '0.35'`, `expireMs: '0'`, or string booleans) load smoothly without throwing type errors.
+  - Upgraded test harness Schemastery shim with strict type validation to continuously guard against schema regressions.
+- **Modularized Documentation & Badges**:
+  - Split the complete 38-property schema and tuning options out of the main README into dedicated English and Chinese references (`docs/configuration.md` and `docs/configuration.zh-CN.md`).
+  - Added standard repository badges including official dsh-plugin.org listing, npm version, CI status, license, and DSH compatibility tags.
+
 ## 0.6.0 — 2026-10-04
 
 - **Functional Countdown Bar & Explicit Infinite Idle Reset**: Synchronized the countdown bar with the combo idle timeout lifecycle so the progress bar genuinely drives combo expiration. When an idle timeout is active, the bar empties and resets the combo upon expiration; when idle reset is set to `0` (Infinite mode), the combo runs indefinitely without idle expiration. Added explicit `[ ∞ 无限 | 5秒 | 10秒 | 30秒 | 60秒 ]` quick preset selectors and localized value formatting (`无限 (永不清零)`) in both the Plugins configuration page and the HUD quick-tune popover. Fixed appearance schema persistence for `expireMs` and `pinPromptMs` in local quick tune.

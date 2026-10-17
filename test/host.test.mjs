@@ -9,7 +9,8 @@
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { apply, foldCombo, publicConfig, toComboView, ComboViewSchema, ComboStateSchema, CONFIG_DEFAULTS } from '../index.js'
+import { apply, foldCombo, publicConfig, toComboView, ComboViewSchema, ComboStateSchema, CONFIG_DEFAULTS, Config } from '../index.js'
+import z from '@deepseek-ai/schemastery'
 
 const call = (name, time = 1000) => ({ type: 'tool/call', data: { callId: `c-${name}-${time}`, name }, time })
 const boundary = (type, surfaceOp = 'append') => ({ type, surfaceOp })
@@ -430,3 +431,37 @@ test('color themes, sound themes, combo modes, and legacy presets map correctly'
   assert.equal(publicConfig({ preset: 'supernova' }).preset, 'fireworks')
 })
 
+test('Config schema tolerates legacy string-quoted YAML values without throwing', () => {
+  const legacyYaml = {
+    enabled: 'true',
+    sound: 'false',
+    soundVolume: '0.35',
+    timerMs: '10000',
+    expireMs: '0',
+    tokensPerCombo: '1',
+    shake: 'true',
+    scale: '1.2',
+  }
+  // Config.parse must not throw even if strings are supplied for numbers/booleans
+  const parsed = Config.parse(legacyYaml)
+  assert.ok(parsed)
+  // And publicConfig must safely coerce them
+  const clamped = publicConfig(parsed)
+  assert.equal(clamped.enabled, true)
+  assert.equal(clamped.sound, false)
+  assert.equal(clamped.soundVolume, 0.35)
+  assert.equal(clamped.timerMs, 10000)
+  assert.equal(clamped.expireMs, 0)
+  assert.equal(clamped.tokensPerCombo, 1)
+  assert.equal(clamped.shake, true)
+  assert.equal(clamped.scale, 1.2)
+})
+
+test('schemastery shim actually enforces types when strict schemas are used', () => {
+  const strictNumber = z.number()
+  assert.throws(() => strictNumber.parse('0.35'), /expected number/)
+  const strictBoolean = z.boolean()
+  assert.throws(() => strictBoolean.parse('true'), /expected boolean/)
+  const strictUnion = z.union(['a', 'b'])
+  assert.throws(() => strictUnion.parse('c'), /does not match union/)
+})

@@ -116,8 +116,9 @@ export const CONFIG_DEFAULTS = {
  * `any()` is deliberate. DSH serializes this schema to the browser and
  * validates writes against it, but a profile patch stays user-authored YAML:
  * `publicConfig` already clamps each field, and a stricter type here would turn
- * a quoted number into a row that refuses to load — exactly what this plugin
- * tolerates today.
+ * a quoted number (such as `soundVolume: '0.35'` from older setups) into a row
+ * that refuses to load. Keeping `any()` guarantees seamless upgrades and
+ * robust error-free parsing across all user environments.
  */
 export const Config = z.object({
   enabled: z.any().default(CONFIG_DEFAULTS.enabled).volatile(),
@@ -213,17 +214,17 @@ export function publicConfig(cfg) {
     for (const [key, value] of Object.entries(source)) raw[key] = plain(value)
   }
   return {
-    enabled: raw.enabled !== false,
+    enabled: raw.enabled !== false && raw.enabled !== 'false',
     comboMode: COMBO_MODES.includes(raw.comboMode) ? raw.comboMode : CONFIG_DEFAULTS.comboMode,
     tokensPerCombo: Math.round(clampNumber(raw.tokensPerCombo, CONFIG_DEFAULTS.tokensPerCombo, 1, 100)),
-    showToolName: raw.showToolName !== false,
+    showToolName: raw.showToolName !== false && raw.showToolName !== 'false',
     animation: ANIMATIONS.includes(raw.animation) ? raw.animation : CONFIG_DEFAULTS.animation,
-    particles: raw.particles !== false,
+    particles: raw.particles !== false && raw.particles !== 'false',
     preset: PRESETS.includes(raw.preset) ? raw.preset : (LEGACY_PRESETS[raw.preset] ?? CONFIG_DEFAULTS.preset),
     colorTheme: COLOR_THEMES.includes(raw.colorTheme) ? raw.colorTheme : CONFIG_DEFAULTS.colorTheme,
     powerThreshold: Math.round(clampNumber(raw.powerThreshold, CONFIG_DEFAULTS.powerThreshold, 0, 1000)),
     effectFrequency: Math.round(clampNumber(raw.effectFrequency, CONFIG_DEFAULTS.effectFrequency, 1, 20)),
-    shake: raw.shake !== false,
+    shake: raw.shake !== false && raw.shake !== 'false',
     shakeIntensity: clampNumber(raw.shakeIntensity, CONFIG_DEFAULTS.shakeIntensity, 0, 12),
     timerMs: clampNumber(raw.timerMs, CONFIG_DEFAULTS.timerMs, 1000, 60000),
     scale: clampNumber(raw.scale, CONFIG_DEFAULTS.scale, 0.5, 2),
@@ -237,21 +238,21 @@ export function publicConfig(cfg) {
     glow: clampNumber(raw.glow, CONFIG_DEFAULTS.glow, 0, 2),
     accentColor: /^#[0-9a-f]{6}$/i.test(raw.accentColor) ? raw.accentColor : '',
     numberColor: /^#[0-9a-f]{6}$/i.test(raw.numberColor) ? raw.numberColor : '',
-    showGain: raw.showGain !== false,
-    showTimer: raw.showTimer !== false,
+    showGain: raw.showGain !== false && raw.showGain !== 'false',
+    showTimer: raw.showTimer !== false && raw.showTimer !== 'false',
     position: POSITIONS.includes(raw.position) ? raw.position : CONFIG_DEFAULTS.position,
     excludeTools: Array.isArray(raw.excludeTools) ? raw.excludeTools.slice() : [],
     // 0 disables the idle break, which keeps the default semantics turn-based.
     expireMs: clampNumber(raw.expireMs, CONFIG_DEFAULTS.expireMs, 0, MAX_EXPIRE_MS),
-    sound: raw.sound === true,
+    sound: raw.sound === true || raw.sound === 'true',
     soundTheme: SOUND_THEMES.includes(raw.soundTheme) ? raw.soundTheme : CONFIG_DEFAULTS.soundTheme,
     soundVolume: clampNumber(raw.soundVolume, CONFIG_DEFAULTS.soundVolume, 0, 1),
     soundFrom: clampNumber(raw.soundFrom, CONFIG_DEFAULTS.soundFrom, 0, MAX_SOUND_FROM),
     pinPromptMs: clampNumber(raw.pinPromptMs, CONFIG_DEFAULTS.pinPromptMs, 0, MAX_PIN_PROMPT_MS),
-    screenVignette: raw.screenVignette === true,
-    recapCard: raw.recapCard === true,
-    showMilestones: raw.showMilestones === true,
-    showCrit: raw.showCrit === true,
+    screenVignette: raw.screenVignette === true || raw.screenVignette === 'true',
+    recapCard: raw.recapCard === true || raw.recapCard === 'true',
+    showMilestones: raw.showMilestones === true || raw.showMilestones === 'true',
+    showCrit: raw.showCrit === true || raw.showCrit === 'true',
   }
 }
 
