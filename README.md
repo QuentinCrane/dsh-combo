@@ -10,13 +10,9 @@
 
 dsh-combo 是 DeepSeek Harness（DSH）的轻量级连击反馈插件，为 DSH Web 界面和 DSH Desktop 桌面端带来 PowerMode 风格的打字暴击与工具调用连击体验。支持实时 Token 连击、5 大视觉动效预设、5 款调色板主题、6 种 Web Audio 合成音色以及内置交互模拟器。
 
-## 🎮 效果演示
-
-![Combo Demo](docs/combo-countdown.gif)
-
-- **实时动态打击感**：连击倍率随模型流式打字与工具调用实时暴击迸发，支持微动物理震颤。
-- **5 款爆发力学预设**：晶莹粒子、球形烟花、激光光刃斩击、超赛气焰升腾或赛博故障撕裂。
-- **纯本地 Web Audio**：零音频文件依赖，高保真动态声学合成，伴随敲击节奏起伏。
+<p align="center">
+  <img src="https://cdn.jsdelivr.net/gh/QuentinCrane/dsh-combo@main/docs/combo-countdown.gif" alt="Combo Demo" width="520" />
+</p>
 
 ## ✨ 功能亮点
 

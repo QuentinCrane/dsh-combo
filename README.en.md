@@ -10,13 +10,9 @@
 
 A lightweight DeepSeek Harness (DSH) plugin providing PowerMode-style combo feedback for streaming text and tool calls in DSH Web and DSH Desktop. Features real-time token combos, 5 dynamic visual presets, 5 color themes, 6 synthesized Web Audio styles, and a live HUD simulator.
 
-## 🎮 Visual Showcase
-
-![Combo Demo](docs/combo-countdown.gif)
-
-- **Dynamic HUD Feedback**: Multiplier pops and scales with typing rhythm and tool execution velocity.
-- **5 Particle Presets**: Choose between crystalline `particles`, full-spectrum `fireworks`, directional laser `slash`, plasma `aura`, or cyberpunk `glitch`.
-- **Pure Web Audio**: Real-time auditory strikes synthesized locally with zero sound file dependencies.
+<p align="center">
+  <img src="https://cdn.jsdelivr.net/gh/QuentinCrane/dsh-combo@main/docs/combo-countdown.gif" alt="Combo Demo" width="520" />
+</p>
 
 ## ✨ Features
 
